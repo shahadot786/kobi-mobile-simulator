@@ -10,11 +10,11 @@ only planning docs and tooling config (`.gitignore`, `.gitattributes`,
 exists; check before running build/test/lint commands.
 
 Before any product, architecture, or roadmap question, read
-`docs/DESIGN_BRIEF.md` (feature spec, screen inventory, light/dark spec) and
-`docs/ROADMAP.md` (phased build plan, locked-in tech decisions, known risks)
-— these are gitignored (local planning docs, not committed) but are the
-source of truth for scope and sequencing. Don't re-derive decisions already
-made there.
+`docs/DESIGN_BRIEF.md` (feature spec, screen inventory, light/dark spec),
+`docs/ROADMAP.md` (phased build plan, locked-in tech decisions, known risks),
+and `docs/UI_SPECIFICATION.md` (the canonical Stitch UI design system, tokens,
+and component specs). All future feature implementations and UI changes MUST
+follow `docs/UI_SPECIFICATION.md`. Don't re-derive decisions already made there.
 
 ## Locked-in technical decisions (do not re-litigate without asking)
 

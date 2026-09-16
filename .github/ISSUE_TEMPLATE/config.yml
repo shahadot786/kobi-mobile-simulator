@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ask a question / start a discussion
+    url: https://github.com/shahadot786/kobi-mobile-simulator/discussions
+    about: For questions and open-ended ideas, use Discussions instead of an issue.

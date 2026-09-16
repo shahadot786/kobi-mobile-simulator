@@ -1,9 +1,10 @@
 included:
-  - Sources
+  - Kobi
 
 excluded:
   - .build
   - DerivedData
+  - Kobi.xcodeproj
 
 opt_in_rules:
   - empty_count
