@@ -1,0 +1,17 @@
+# Normalize line endings
+* text=auto eol=lf
+
+# Xcode project files: avoid noisy diffs / bad merges
+*.pbxproj -text -merge=union
+*.xcscheme -text
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.icns binary
+*.pdf binary
+*.mov binary
+*.mp4 binary

@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git diff)",
+      "Bash(git diff *)",
+      "Bash(git log)",
+      "Bash(git log *)",
+      "Bash(git branch)",
+      "Bash(git branch *)",
+      "Bash(git show *)",
+      "Bash(ls)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(swiftformat --lint *)",
+      "Bash(swiftformat .)",
+      "Bash(swiftformat . --dryrun)",
+      "Bash(swiftlint)",
+      "Bash(swiftlint lint *)",
+      "Bash(xcodebuild -list*)",
+      "Bash(xcodebuild -showBuildSettings*)",
+      "Bash(xcrun --find *)",
+      "Bash(xcrun simctl list*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; if [ -n \"$f\" ] && [[ \"$f\" == *.swift ]]; then command -v swiftformat >/dev/null 2>&1 && swiftformat \"$f\" >/dev/null 2>&1; command -v swiftlint >/dev/null 2>&1 && swiftlint lint --quiet --path \"$f\"; fi; } 2>/dev/null || true",
+            "statusMessage": "Formatting/linting Swift file..."
+          }
+        ]
+      }
+    ]
+  }
+}

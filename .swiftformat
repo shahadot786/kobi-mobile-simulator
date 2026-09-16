@@ -1,0 +1,10 @@
+--swiftversion 5.9
+--indent 4
+--indentcase false
+--trimwhitespace always
+--semicolons never
+--self remove
+--importgrouping testable-bottom
+--wraparguments before-first
+--wrapparameters before-first
+--maxwidth 120
