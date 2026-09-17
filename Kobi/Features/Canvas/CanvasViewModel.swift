@@ -110,10 +110,10 @@ final class CanvasViewModel {
 
     /// Only frames whose `WKWebView` has actually attached (weak ref set once `makeNSView` runs)
     /// are included — a frame added this instant and not yet laid out has no content to shoot.
-    func captureSources() -> [(device: Device, orientation: DeviceOrientation, webView: WKWebView)] {
+    func captureSources() -> [CaptureFrame] {
         frames.compactMap { frame in
             guard let webView = frame.webView else { return nil }
-            return (frame.device, frame.orientation, webView)
+            return CaptureFrame(device: frame.device, orientation: frame.orientation, webView: webView)
         }
     }
 

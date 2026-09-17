@@ -118,7 +118,8 @@ struct MockupLibraryView: View {
     }
 
     private func batchExportAll() async {
-        guard let folder = await CaptureExporter.chooseFolder(prompt: String(localized: "mockup.batchExport.choosePrompt")) else { return }
+        guard let folder = await CaptureExporter
+            .chooseFolder(prompt: String(localized: "mockup.batchExport.choosePrompt")) else { return }
 
         isBatchExporting = true
         batchExportProgress = (0, devices.count)
@@ -151,7 +152,8 @@ struct MockupLibraryView: View {
         }
 
         if !failedDeviceNames.isEmpty {
-            batchExportError = String(localized: "mockup.batchExport.failed \(failedDeviceNames.joined(separator: ", "))")
+            batchExportError =
+                String(localized: "mockup.batchExport.failed \(failedDeviceNames.joined(separator: ", "))")
         }
     }
 }

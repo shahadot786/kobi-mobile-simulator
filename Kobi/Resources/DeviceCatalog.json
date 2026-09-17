@@ -12,7 +12,17 @@
     "diagonalInches": 6.9,
     "physicalWidth": 1320,
     "physicalHeight": 2868,
-    "releaseYear": 2024
+    "releaseYear": 2024,
+    "ppi": 460,
+    "safeAreaInsets": {
+      "portrait": { "top": 59, "bottom": 34, "leading": 0, "trailing": 0 },
+      "landscape": { "top": 0, "bottom": 21, "leading": 59, "trailing": 59 }
+    },
+    "refreshRateHz": 120,
+    "osVersion": "18.0",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "iphone-16-pro",
@@ -27,7 +37,17 @@
     "diagonalInches": 6.3,
     "physicalWidth": 1206,
     "physicalHeight": 2622,
-    "releaseYear": 2024
+    "releaseYear": 2024,
+    "ppi": 460,
+    "safeAreaInsets": {
+      "portrait": { "top": 59, "bottom": 34, "leading": 0, "trailing": 0 },
+      "landscape": { "top": 0, "bottom": 21, "leading": 59, "trailing": 59 }
+    },
+    "refreshRateHz": 120,
+    "osVersion": "18.0",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "iphone-16",
@@ -42,7 +62,17 @@
     "diagonalInches": 6.1,
     "physicalWidth": 1179,
     "physicalHeight": 2556,
-    "releaseYear": 2024
+    "releaseYear": 2024,
+    "ppi": 460,
+    "safeAreaInsets": {
+      "portrait": { "top": 59, "bottom": 34, "leading": 0, "trailing": 0 },
+      "landscape": { "top": 0, "bottom": 21, "leading": 59, "trailing": 59 }
+    },
+    "refreshRateHz": 60,
+    "osVersion": "18.0",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "iphone-15-pro-max",
@@ -57,7 +87,17 @@
     "diagonalInches": 6.7,
     "physicalWidth": 1290,
     "physicalHeight": 2796,
-    "releaseYear": 2023
+    "releaseYear": 2023,
+    "ppi": 460,
+    "safeAreaInsets": {
+      "portrait": { "top": 59, "bottom": 34, "leading": 0, "trailing": 0 },
+      "landscape": { "top": 0, "bottom": 21, "leading": 59, "trailing": 59 }
+    },
+    "refreshRateHz": 120,
+    "osVersion": "17.5",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "iphone-15-pro",
@@ -72,7 +112,17 @@
     "diagonalInches": 6.1,
     "physicalWidth": 1179,
     "physicalHeight": 2556,
-    "releaseYear": 2023
+    "releaseYear": 2023,
+    "ppi": 460,
+    "safeAreaInsets": {
+      "portrait": { "top": 59, "bottom": 34, "leading": 0, "trailing": 0 },
+      "landscape": { "top": 0, "bottom": 21, "leading": 59, "trailing": 59 }
+    },
+    "refreshRateHz": 120,
+    "osVersion": "17.5",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "iphone-15",
@@ -87,7 +137,17 @@
     "diagonalInches": 6.1,
     "physicalWidth": 1179,
     "physicalHeight": 2556,
-    "releaseYear": 2023
+    "releaseYear": 2023,
+    "ppi": 460,
+    "safeAreaInsets": {
+      "portrait": { "top": 59, "bottom": 34, "leading": 0, "trailing": 0 },
+      "landscape": { "top": 0, "bottom": 21, "leading": 59, "trailing": 59 }
+    },
+    "refreshRateHz": 60,
+    "osVersion": "17.5",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "iphone-15-plus",
@@ -102,7 +162,17 @@
     "diagonalInches": 6.7,
     "physicalWidth": 1290,
     "physicalHeight": 2796,
-    "releaseYear": 2023
+    "releaseYear": 2023,
+    "ppi": 460,
+    "safeAreaInsets": {
+      "portrait": { "top": 59, "bottom": 34, "leading": 0, "trailing": 0 },
+      "landscape": { "top": 0, "bottom": 21, "leading": 59, "trailing": 59 }
+    },
+    "refreshRateHz": 60,
+    "osVersion": "17.5",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "iphone-14",
@@ -117,7 +187,17 @@
     "diagonalInches": 6.1,
     "physicalWidth": 1170,
     "physicalHeight": 2532,
-    "releaseYear": 2022
+    "releaseYear": 2022,
+    "ppi": 460,
+    "safeAreaInsets": {
+      "portrait": { "top": 47, "bottom": 34, "leading": 0, "trailing": 0 },
+      "landscape": { "top": 0, "bottom": 21, "leading": 47, "trailing": 47 }
+    },
+    "refreshRateHz": 60,
+    "osVersion": "17.0",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "iphone-se-3",
@@ -132,7 +212,17 @@
     "diagonalInches": 4.7,
     "physicalWidth": 750,
     "physicalHeight": 1334,
-    "releaseYear": 2022
+    "releaseYear": 2022,
+    "ppi": 326,
+    "safeAreaInsets": {
+      "portrait": { "top": 20, "bottom": 0, "leading": 0, "trailing": 0 },
+      "landscape": { "top": 0, "bottom": 0, "leading": 0, "trailing": 0 }
+    },
+    "refreshRateHz": 60,
+    "osVersion": "17.0",
+    "browserEngine": "webkit",
+    "colorGamut": "srgb",
+    "supportsHDR": false
   },
   {
     "id": "ipad-air-m2",
@@ -147,7 +237,17 @@
     "diagonalInches": 10.9,
     "physicalWidth": 1640,
     "physicalHeight": 2360,
-    "releaseYear": 2024
+    "releaseYear": 2024,
+    "ppi": 264,
+    "safeAreaInsets": {
+      "portrait": { "top": 24, "bottom": 20, "leading": 0, "trailing": 0 },
+      "landscape": { "top": 24, "bottom": 20, "leading": 0, "trailing": 0 }
+    },
+    "refreshRateHz": 60,
+    "osVersion": "17.5",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": false
   },
   {
     "id": "ipad-pro-12-9",
@@ -162,7 +262,17 @@
     "diagonalInches": 12.9,
     "physicalWidth": 2048,
     "physicalHeight": 2732,
-    "releaseYear": 2022
+    "releaseYear": 2022,
+    "ppi": 264,
+    "safeAreaInsets": {
+      "portrait": { "top": 24, "bottom": 20, "leading": 0, "trailing": 0 },
+      "landscape": { "top": 24, "bottom": 20, "leading": 0, "trailing": 0 }
+    },
+    "refreshRateHz": 120,
+    "osVersion": "17.5",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "pixel-8",
@@ -177,7 +287,13 @@
     "diagonalInches": 6.2,
     "physicalWidth": 1080,
     "physicalHeight": 2400,
-    "releaseYear": 2023
+    "releaseYear": 2023,
+    "ppi": 428,
+    "refreshRateHz": 120,
+    "osVersion": "14",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "pixel-8-pro",
@@ -192,7 +308,13 @@
     "diagonalInches": 6.7,
     "physicalWidth": 1344,
     "physicalHeight": 2992,
-    "releaseYear": 2023
+    "releaseYear": 2023,
+    "ppi": 489,
+    "refreshRateHz": 120,
+    "osVersion": "14",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "galaxy-s24",
@@ -207,7 +329,13 @@
     "diagonalInches": 6.2,
     "physicalWidth": 1080,
     "physicalHeight": 2340,
-    "releaseYear": 2024
+    "releaseYear": 2024,
+    "ppi": 416,
+    "refreshRateHz": 120,
+    "osVersion": "14",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "galaxy-s24-ultra",
@@ -222,7 +350,13 @@
     "diagonalInches": 6.8,
     "physicalWidth": 1344,
     "physicalHeight": 2992,
-    "releaseYear": 2024
+    "releaseYear": 2024,
+    "ppi": 505,
+    "refreshRateHz": 120,
+    "osVersion": "14",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "oneplus-12",
@@ -237,7 +371,13 @@
     "diagonalInches": 6.82,
     "physicalWidth": 1440,
     "physicalHeight": 3168,
-    "releaseYear": 2024
+    "releaseYear": 2024,
+    "ppi": 510,
+    "refreshRateHz": 120,
+    "osVersion": "14",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "xiaomi-14",
@@ -252,7 +392,13 @@
     "diagonalInches": 6.36,
     "physicalWidth": 1200,
     "physicalHeight": 2670,
-    "releaseYear": 2023
+    "releaseYear": 2023,
+    "ppi": 460,
+    "refreshRateHz": 120,
+    "osVersion": "14",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "huawei-p60-pro",
@@ -267,7 +413,13 @@
     "diagonalInches": 6.67,
     "physicalWidth": 1220,
     "physicalHeight": 2700,
-    "releaseYear": 2023
+    "releaseYear": 2023,
+    "ppi": 460,
+    "refreshRateHz": 120,
+    "osVersion": "13",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "sony-xperia-1-vi",
@@ -282,7 +434,13 @@
     "diagonalInches": 6.5,
     "physicalWidth": 1080,
     "physicalHeight": 2340,
-    "releaseYear": 2024
+    "releaseYear": 2024,
+    "ppi": 397,
+    "refreshRateHz": 120,
+    "osVersion": "14",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "motorola-edge-50-pro",
@@ -297,7 +455,13 @@
     "diagonalInches": 6.7,
     "physicalWidth": 1220,
     "physicalHeight": 2712,
-    "releaseYear": 2024
+    "releaseYear": 2024,
+    "ppi": 402,
+    "refreshRateHz": 144,
+    "osVersion": "14",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "honor-magic-6-pro",
@@ -312,7 +476,13 @@
     "diagonalInches": 6.8,
     "physicalWidth": 1312,
     "physicalHeight": 2844,
-    "releaseYear": 2024
+    "releaseYear": 2024,
+    "ppi": 460,
+    "refreshRateHz": 120,
+    "osVersion": "14",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "oppo-find-x7",
@@ -327,7 +497,13 @@
     "diagonalInches": 6.78,
     "physicalWidth": 1264,
     "physicalHeight": 2780,
-    "releaseYear": 2024
+    "releaseYear": 2024,
+    "ppi": 452,
+    "refreshRateHz": 120,
+    "osVersion": "14",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "infinix-zero-30",
@@ -342,7 +518,13 @@
     "diagonalInches": 6.78,
     "physicalWidth": 1080,
     "physicalHeight": 2340,
-    "releaseYear": 2023
+    "releaseYear": 2023,
+    "ppi": 395,
+    "refreshRateHz": 120,
+    "osVersion": "13",
+    "browserEngine": "blink",
+    "colorGamut": "srgb",
+    "supportsHDR": false
   },
   {
     "id": "surface-pro-9",
@@ -357,7 +539,13 @@
     "diagonalInches": 13.0,
     "physicalWidth": 2736,
     "physicalHeight": 1824,
-    "releaseYear": 2022
+    "releaseYear": 2022,
+    "ppi": 267,
+    "refreshRateHz": 120,
+    "osVersion": "11",
+    "browserEngine": "blink",
+    "colorGamut": "srgb",
+    "supportsHDR": false
   },
   {
     "id": "apple-watch-series-9-45mm",
@@ -372,7 +560,13 @@
     "diagonalInches": 1.9,
     "physicalWidth": 396,
     "physicalHeight": 484,
-    "releaseYear": 2023
+    "releaseYear": 2023,
+    "ppi": 326,
+    "refreshRateHz": 60,
+    "osVersion": "10.0",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": false
   },
   {
     "id": "galaxy-z-fold-5",
@@ -387,7 +581,13 @@
     "diagonalInches": 7.6,
     "physicalWidth": 1812,
     "physicalHeight": 2176,
-    "releaseYear": 2023
+    "releaseYear": 2023,
+    "ppi": 374,
+    "refreshRateHz": 120,
+    "osVersion": "14",
+    "browserEngine": "blink",
+    "colorGamut": "p3",
+    "supportsHDR": true
   },
   {
     "id": "imac-24",
@@ -402,7 +602,13 @@
     "diagonalInches": 23.5,
     "physicalWidth": 4480,
     "physicalHeight": 2520,
-    "releaseYear": 2021
+    "releaseYear": 2021,
+    "ppi": 218,
+    "refreshRateHz": 60,
+    "osVersion": "14.5",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": false
   },
   {
     "id": "lg-ultrafine-5k",
@@ -417,7 +623,13 @@
     "diagonalInches": 27.0,
     "physicalWidth": 5120,
     "physicalHeight": 2880,
-    "releaseYear": 2019
+    "releaseYear": 2019,
+    "ppi": 218,
+    "refreshRateHz": 60,
+    "osVersion": "14.5",
+    "browserEngine": "webkit",
+    "colorGamut": "p3",
+    "supportsHDR": false
   },
   {
     "id": "desktop-1366x768",
@@ -428,7 +640,11 @@
     "viewportHeight": 768,
     "pixelRatio": 1.0,
     "notchStyle": "none",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "refreshRateHz": 60,
+    "browserEngine": "blink",
+    "colorGamut": "srgb",
+    "supportsHDR": false
   },
   {
     "id": "desktop-1920x1080",
@@ -439,7 +655,11 @@
     "viewportHeight": 1080,
     "pixelRatio": 1.0,
     "notchStyle": "none",
-    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "refreshRateHz": 60,
+    "browserEngine": "blink",
+    "colorGamut": "srgb",
+    "supportsHDR": false
   },
   {
     "id": "desktop-2560x1440",
@@ -450,6 +670,10 @@
     "viewportHeight": 1440,
     "pixelRatio": 1.0,
     "notchStyle": "none",
-    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "refreshRateHz": 60,
+    "browserEngine": "blink",
+    "colorGamut": "srgb",
+    "supportsHDR": false
   }
 ]

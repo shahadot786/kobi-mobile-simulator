@@ -23,7 +23,7 @@ enum GIFExporter {
             generator.maximumSize = CGSize(width: maxDimension, height: maxDimension)
 
             let frameCount = max(Int(duration * frameRate), 1)
-            let times = (0..<frameCount).map { CMTime(seconds: Double($0) / frameRate, preferredTimescale: 600) }
+            let times = (0 ..< frameCount).map { CMTime(seconds: Double($0) / frameRate, preferredTimescale: 600) }
 
             let outputURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("kobi-export-\(UUID().uuidString)")
@@ -39,10 +39,13 @@ enum GIFExporter {
             }
 
             let loopProperties: [CFString: Any] = [kCGImagePropertyGIFLoopCount: 0]
-            CGImageDestinationSetProperties(destination, [kCGImagePropertyGIFDictionary: loopProperties] as CFDictionary)
+            CGImageDestinationSetProperties(
+                destination,
+                [kCGImagePropertyGIFDictionary: loopProperties] as CFDictionary
+            )
 
             let frameProperties: [CFString: Any] = [
-                kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: 1.0 / frameRate]
+                kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: 1.0 / frameRate],
             ]
 
             for time in times {

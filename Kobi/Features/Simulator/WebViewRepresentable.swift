@@ -79,7 +79,11 @@ struct WebViewRepresentable: NSViewRepresentable {
             WKUserScript(source: pwaDisplayModeScriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         )
         contentController.addUserScript(
-            WKUserScript(source: keyboardVisibilityScriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+            WKUserScript(
+                source: keyboardVisibilityScriptSource,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
         )
 
         let configuration = WKWebViewConfiguration()
@@ -130,9 +134,10 @@ struct WebViewRepresentable: NSViewRepresentable {
         }
     }
 
-    static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
+    static func dismantleNSView(_ webView: WKWebView, coordinator _: Coordinator) {
         webView.configuration.userContentController.removeScriptMessageHandler(forName: scrollSyncMessageHandlerName)
-        webView.configuration.userContentController.removeScriptMessageHandler(forName: keyboardVisibilityMessageHandlerName)
+        webView.configuration.userContentController
+            .removeScriptMessageHandler(forName: keyboardVisibilityMessageHandlerName)
     }
 
     @MainActor
@@ -145,13 +150,13 @@ struct WebViewRepresentable: NSViewRepresentable {
             self.viewModel = viewModel
         }
 
-        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        func webView(_: WKWebView, didStartProvisionalNavigation _: WKNavigation!) {
             viewModel.isLoading = true
             viewModel.loadError = nil
             viewModel.isKeyboardOverlayVisible = false
         }
 
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
             viewModel.isLoading = false
             viewModel.canGoBack = webView.canGoBack
             viewModel.canGoForward = webView.canGoForward
@@ -162,17 +167,17 @@ struct WebViewRepresentable: NSViewRepresentable {
             )
         }
 
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        func webView(_: WKWebView, didFail _: WKNavigation!, withError error: Error) {
             viewModel.isLoading = false
             viewModel.loadError = error.localizedDescription
         }
 
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        func webView(_: WKWebView, didFailProvisionalNavigation _: WKNavigation!, withError error: Error) {
             viewModel.isLoading = false
             viewModel.loadError = error.localizedDescription
         }
 
-        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage) {
             guard let body = message.body as? [String: Any] else { return }
 
             switch message.name {

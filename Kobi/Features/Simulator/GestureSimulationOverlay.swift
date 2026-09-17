@@ -81,7 +81,9 @@ final class TouchSimulationOverlayView: NSView {
     private var longPressTimer: Timer?
     private var didMove = false
 
-    override var isFlipped: Bool { true }
+    override var isFlipped: Bool {
+        true
+    }
 
     override func mouseDown(with event: NSEvent) {
         super.mouseDown(with: event)
@@ -92,7 +94,7 @@ final class TouchSimulationOverlayView: NSView {
         longPressTimer?.invalidate()
         longPressTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
             guard let self, !self.didMove else { return }
-            self.dispatchContextMenu(point: point)
+            dispatchContextMenu(point: point)
         }
     }
 

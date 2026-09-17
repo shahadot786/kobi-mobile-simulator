@@ -3,8 +3,8 @@
 //  Kobi
 //
 
-import AVFoundation
 import AppKit
+import AVFoundation
 import Observation
 import ScreenCaptureKit
 
@@ -80,7 +80,7 @@ final class ScreenRecorder {
         let videoSettings: [String: Any] = [
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: pixelWidth,
-            AVVideoHeightKey: pixelHeight
+            AVVideoHeightKey: pixelHeight,
         ]
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         input.expectsMediaDataInRealTime = true
@@ -89,7 +89,7 @@ final class ScreenRecorder {
             sourcePixelBufferAttributes: [
                 kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
                 kCVPixelBufferWidthKey as String: pixelWidth,
-                kCVPixelBufferHeightKey as String: pixelHeight
+                kCVPixelBufferHeightKey as String: pixelHeight,
             ]
         )
         guard writer.canAdd(input) else { throw ScreenRecorderError.writerSetupFailed }
@@ -103,12 +103,12 @@ final class ScreenRecorder {
         try await stream.startCapture()
 
         self.stream = stream
-        self.assetWriter = writer
-        self.videoInput = input
-        self.pixelBufferAdaptor = adaptor
-        self.outputURL = tempURL
-        self.streamOutput = output
-        self.streamDelegate = delegate
+        assetWriter = writer
+        videoInput = input
+        pixelBufferAdaptor = adaptor
+        outputURL = tempURL
+        streamOutput = output
+        streamDelegate = delegate
         isRecording = true
         elapsedSeconds = 0
         lastError = nil
@@ -132,12 +132,12 @@ final class ScreenRecorder {
         }
 
         self.stream = nil
-        self.assetWriter = nil
-        self.videoInput = nil
-        self.pixelBufferAdaptor = nil
+        assetWriter = nil
+        videoInput = nil
+        pixelBufferAdaptor = nil
         self.outputURL = nil
-        self.streamOutput = nil
-        self.streamDelegate = nil
+        streamOutput = nil
+        streamDelegate = nil
         isRecording = false
 
         return outputURL
@@ -196,7 +196,7 @@ final class ScreenRecorder {
             self.adaptor = adaptor
         }
 
-        func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
+        func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
             guard type == .screen, sampleBuffer.isValid, isCompleteFrame(sampleBuffer),
                   let imageBuffer = sampleBuffer.imageBuffer else { return }
 
@@ -212,10 +212,14 @@ final class ScreenRecorder {
         }
 
         private func isCompleteFrame(_ sampleBuffer: CMSampleBuffer) -> Bool {
-            guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
-                  let attachments = attachmentsArray.first,
-                  let statusRawValue = attachments[.status] as? Int,
-                  let status = SCFrameStatus(rawValue: statusRawValue) else {
+            guard let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(
+                sampleBuffer,
+                createIfNecessary: false
+            ) as? [[SCStreamFrameInfo: Any]],
+                let attachments = attachmentsArray.first,
+                let statusRawValue = attachments[.status] as? Int,
+                let status = SCFrameStatus(rawValue: statusRawValue)
+            else {
                 return false
             }
             return status == .complete
@@ -229,7 +233,7 @@ final class ScreenRecorder {
             self.recorder = recorder
         }
 
-        func stream(_ stream: SCStream, didStopWithError error: Error) {
+        func stream(_: SCStream, didStopWithError error: Error) {
             Task { @MainActor [weak recorder] in
                 await recorder?.handleStreamStoppedUnexpectedly(error: error)
             }

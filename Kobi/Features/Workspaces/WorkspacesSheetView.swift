@@ -125,7 +125,9 @@ struct WorkspacesSheetView: View {
                 : String(localized: "workspace.summary.devicePlural")
             return String(localized: "workspace.summary.canvas \(count) \(deviceWord) \(canvasSharedURL)")
         } else if let singleDevice {
-            return String(localized: "workspace.summary.single \(singleDevice.name) \(singleURL ?? "http://localhost:3000")")
+            return String(
+                localized: "workspace.summary.single \(singleDevice.name) \(singleURL ?? "http://localhost:3000")"
+            )
         } else {
             return String(localized: "workspace.summary.empty")
         }
@@ -159,7 +161,7 @@ struct WorkspacesSheetView: View {
             )
         }
 
-        _ = workspaceStore.save(
+        let workspace = Workspace(
             name: name,
             isCanvasMode: isCanvasMode,
             singleDeviceID: singleDevice?.id,
@@ -169,6 +171,7 @@ struct WorkspacesSheetView: View {
             isSharedURLMode: isSharedURLMode,
             isScrollSyncEnabled: isScrollSyncEnabled
         )
+        workspaceStore.save(workspace)
 
         newWorkspaceName = ""
         isShowingSaveField = false
@@ -185,81 +188,88 @@ struct WorkspacesSheetView: View {
 
     private func workspaceRow(_ ws: Workspace) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                if renamingWorkspaceID == ws.id {
-                    HStack {
-                        TextField("workspace.name.placeholder", text: $editingName)
-                            .textFieldStyle(.roundedBorder)
-                            .onSubmit {
-                                workspaceStore.rename(id: ws.id, newName: editingName)
-                                renamingWorkspaceID = nil
-                            }
-                        Button("workspace.button.done") {
-                            workspaceStore.rename(id: ws.id, newName: editingName)
-                            renamingWorkspaceID = nil
-                        }
-                        .buttonStyle(.bordered)
-                        .font(.caption)
-                    }
-                } else {
-                    HStack(spacing: 6) {
-                        Text(ws.name)
-                            .font(.system(size: 13, weight: .semibold))
-
-                        Text(ws.isCanvasMode ? "workspace.badge.canvas" : "workspace.badge.single")
-                            .font(.system(size: 9, weight: .medium))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1.5)
-                            .background(Color.secondary.opacity(0.12))
-                            .foregroundStyle(.secondary)
-                            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
-                    }
-                }
-
-                // Device icons / names chip list
-                deviceChips(for: ws)
-
-                // URL info
-                Text(ws.isCanvasMode ? ws.sharedURL : (ws.singleDeviceURL ?? "http://localhost:3000"))
-                    .telemetryFont(size: 10)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
+            workspaceInfo(for: ws)
             Spacer()
-
-            HStack(spacing: 8) {
-                Button {
-                    onLoadWorkspace(ws)
-                    onDismiss()
-                } label: {
-                    Label("workspace.button.open", systemImage: "arrow.up.right.circle.fill")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(KobiTheme.primaryAccent)
-
-                Menu {
-                    Button("workspace.action.rename") {
-                        editingName = ws.name
-                        renamingWorkspaceID = ws.id
-                    }
-
-                    Divider()
-
-                    Button("workspace.action.delete", role: .destructive) {
-                        workspaceStore.delete(id: ws.id)
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-            }
+            workspaceActions(for: ws)
         }
         .padding(.vertical, 6)
+    }
+
+    private func workspaceInfo(for ws: Workspace) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            workspaceTitleRow(for: ws)
+            deviceChips(for: ws)
+            Text(ws.isCanvasMode ? ws.sharedURL : (ws.singleDeviceURL ?? "http://localhost:3000"))
+                .telemetryFont(size: 10)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    @ViewBuilder
+    private func workspaceTitleRow(for ws: Workspace) -> some View {
+        if renamingWorkspaceID == ws.id {
+            HStack {
+                TextField("workspace.name.placeholder", text: $editingName)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit {
+                        workspaceStore.rename(id: ws.id, newName: editingName)
+                        renamingWorkspaceID = nil
+                    }
+                Button("workspace.button.done") {
+                    workspaceStore.rename(id: ws.id, newName: editingName)
+                    renamingWorkspaceID = nil
+                }
+                .buttonStyle(.bordered)
+                .font(.caption)
+            }
+        } else {
+            HStack(spacing: 6) {
+                Text(ws.name)
+                    .font(.system(size: 13, weight: .semibold))
+
+                Text(ws.isCanvasMode ? "workspace.badge.canvas" : "workspace.badge.single")
+                    .font(.system(size: 9, weight: .medium))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1.5)
+                    .background(Color.secondary.opacity(0.12))
+                    .foregroundStyle(.secondary)
+                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+            }
+        }
+    }
+
+    private func workspaceActions(for ws: Workspace) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                onLoadWorkspace(ws)
+                onDismiss()
+            } label: {
+                Label("workspace.button.open", systemImage: "arrow.up.right.circle.fill")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(KobiTheme.primaryAccent)
+
+            Menu {
+                Button("workspace.action.rename") {
+                    editingName = ws.name
+                    renamingWorkspaceID = ws.id
+                }
+
+                Divider()
+
+                Button("workspace.action.delete", role: .destructive) {
+                    workspaceStore.delete(id: ws.id)
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+        }
     }
 
     private func deviceChips(for ws: Workspace) -> some View {

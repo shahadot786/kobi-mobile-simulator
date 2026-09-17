@@ -21,13 +21,13 @@ final class RecordingRegion {
 struct FrameRegionReader: NSViewRepresentable {
     let region: RecordingRegion
 
-    func makeNSView(context: Context) -> TrackingView {
+    func makeNSView(context _: Context) -> TrackingView {
         let view = TrackingView()
         view.region = region
         return view
     }
 
-    func updateNSView(_ nsView: TrackingView, context: Context) {
+    func updateNSView(_ nsView: TrackingView, context _: Context) {
         nsView.region = region
         nsView.reportRegion()
     }

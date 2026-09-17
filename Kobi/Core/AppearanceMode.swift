@@ -10,7 +10,9 @@ enum AppearanceMode: String, CaseIterable, Identifiable, Codable {
     case dark
     case system
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var colorScheme: ColorScheme? {
         switch self {
