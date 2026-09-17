@@ -13,7 +13,9 @@ private struct Breakpoint: Identifiable {
     let labelKey: LocalizedStringKey
     let width: Int
 
-    var id: Int { width }
+    var id: Int {
+        width
+    }
 }
 
 private let commonBreakpoints: [Breakpoint] = [
@@ -24,7 +26,7 @@ private let commonBreakpoints: [Breakpoint] = [
     Breakpoint(labelKey: "mediaQuery.bp.largeTablet", width: 1024),
     Breakpoint(labelKey: "mediaQuery.bp.laptop", width: 1280),
     Breakpoint(labelKey: "mediaQuery.bp.desktop", width: 1440),
-    Breakpoint(labelKey: "mediaQuery.bp.largeDesktop", width: 1920)
+    Breakpoint(labelKey: "mediaQuery.bp.largeDesktop", width: 1920),
 ]
 
 struct MediaQueryCheatSheetView: View {
@@ -118,7 +120,8 @@ struct MediaQueryCheatSheetView: View {
         }
         .buttonStyle(.borderless)
         .font(.caption)
-        .accessibilityLabel(copiedWidth == width ? String(localized: "mediaQuery.sheet.copied") : String(localized: "mediaQuery.sheet.copy"))
+        .accessibilityLabel(copiedWidth == width ? String(localized: "mediaQuery.sheet.copied") :
+            String(localized: "mediaQuery.sheet.copy"))
     }
 
     private func copyBreakpoint(width: Int) {

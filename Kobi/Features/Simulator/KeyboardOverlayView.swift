@@ -49,7 +49,7 @@ struct MockKeyboardView: View {
         Array(repeating: 1, count: 10),
         Array(repeating: 1, count: 9),
         [1.5] + Array(repeating: 1, count: 7) + [1.5],
-        [1.2, 1, 1, 5, 1, 1, 1.2]
+        [1.2, 1, 1, 5, 1, 1, 1.2],
     ]
 
     var body: some View {

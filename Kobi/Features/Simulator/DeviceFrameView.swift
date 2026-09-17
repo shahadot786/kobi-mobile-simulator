@@ -79,7 +79,7 @@ struct DeviceFrameView<Content: View>: View {
         ZStack {
             if isFrameVisible {
                 // Physical Hardware Side Buttons
-                if orientation == .portrait && device.category == .smartphone {
+                if orientation == .portrait, device.category == .smartphone {
                     hardwareButtons
                         .accessibilityHidden(true)
                 }
@@ -94,7 +94,7 @@ struct DeviceFrameView<Content: View>: View {
                                     colors: [
                                         KobiTheme.titaniumBorder.opacity(0.8),
                                         KobiTheme.titaniumBorder.opacity(0.2),
-                                        KobiTheme.titaniumBorder.opacity(0.5)
+                                        KobiTheme.titaniumBorder.opacity(0.5),
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing

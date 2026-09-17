@@ -12,6 +12,7 @@ final class DeviceCatalogStore {
     var customDevices: [Device] {
         didSet { persistCustomDevices() }
     }
+
     var favoriteIDs: Set<String> {
         didSet { persistFavorites() }
     }
@@ -35,14 +36,26 @@ final class DeviceCatalogStore {
 
     var filteredDevices: [Device] {
         allDevices.filter { device in
-            if showFavoritesOnly, !favoriteIDs.contains(device.id) { return false }
-            if let selectedCategory, device.category != selectedCategory { return false }
+            if showFavoritesOnly, !favoriteIDs.contains(device.id) {
+                return false
+            }
+            if let selectedCategory, device.category != selectedCategory {
+                return false
+            }
             let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
             guard !query.isEmpty else { return true }
-            if device.name.lowercased().contains(query) { return true }
-            if device.brand.lowercased().contains(query) { return true }
-            if String(device.viewportWidth).contains(query) { return true }
-            if let year = device.releaseYear, String(year).contains(query) { return true }
+            if device.name.lowercased().contains(query) {
+                return true
+            }
+            if device.brand.lowercased().contains(query) {
+                return true
+            }
+            if String(device.viewportWidth).contains(query) {
+                return true
+            }
+            if let year = device.releaseYear, String(year).contains(query) {
+                return true
+            }
             return false
         }
     }
@@ -110,7 +123,8 @@ final class DeviceCatalogStore {
 
     private static func loadCustomDevices() -> [Device] {
         guard let data = UserDefaults.standard.data(forKey: customDevicesKey),
-              let devices = try? JSONDecoder().decode([Device].self, from: data) else {
+              let devices = try? JSONDecoder().decode([Device].self, from: data)
+        else {
             return []
         }
         return devices

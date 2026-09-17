@@ -15,7 +15,9 @@ enum ZoomOption: CaseIterable, Identifiable {
     case percent125
     case percent150
 
-    var id: Self { self }
+    var id: Self {
+        self
+    }
 
     /// `nil` means "fit to window" — the effective scale is computed from available space.
     var fixedScale: CGFloat? {
@@ -83,8 +85,8 @@ final class SimulatorViewModel: Identifiable {
 
     init(device: Device, initialURLString: String = "http://localhost:3000") {
         self.device = device
-        self.urlString = initialURLString
-        self.currentURL = URL(string: Self.normalizedURLString(from: initialURLString))
+        urlString = initialURLString
+        currentURL = URL(string: Self.normalizedURLString(from: initialURLString))
     }
 
     deinit {
@@ -159,15 +161,15 @@ final class SimulatorViewModel: Identifiable {
                 let localPort = try await proxy.start(upstreamHost: host, upstreamPort: upstreamPort, preset: preset)
                 // The preset (or the whole target) may have changed again while `start` was
                 // still resolving — if so, this now-stale result shouldn't clobber it.
-                guard self.networkThrottlePreset == preset else { return }
+                guard networkThrottlePreset == preset else { return }
                 var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
                 components?.host = "127.0.0.1"
                 components?.port = Int(localPort)
                 guard let proxiedURL = components?.url else { return }
-                self.webView?.load(URLRequest(url: proxiedURL))
+                webView?.load(URLRequest(url: proxiedURL))
             } catch {
-                self.loadError = error.localizedDescription
-                self.networkThrottlePreset = .none
+                loadError = error.localizedDescription
+                networkThrottlePreset = .none
             }
         }
     }
@@ -197,7 +199,9 @@ final class SimulatorViewModel: Identifiable {
 
     private static func normalizedURLString(from input: String) -> String {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.contains("://") { return trimmed }
+        if trimmed.contains("://") {
+            return trimmed
+        }
         let isLocal = trimmed.hasPrefix("localhost")
             || trimmed.range(of: #"^\d{1,3}(\.\d{1,3}){3}"#, options: .regularExpression) != nil
         return (isLocal ? "http://" : "https://") + trimmed

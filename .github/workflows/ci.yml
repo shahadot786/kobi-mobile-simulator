@@ -32,7 +32,11 @@ jobs:
 
   build:
     name: Build
-    runs-on: macos-14
+    runs-on: macos-26
+    # TODO: remove once a GitHub-hosted runner ships Xcode 27 (LastUpgradeCheck in this
+    # project's .pbxproj is 2700). No hosted runner can open this project yet — 26.6 below is
+    # the newest available today — so this job is non-blocking rather than red on every run.
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,7 +44,7 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: "26.6"
 
       - name: Build Kobi (My Mac, unsigned)
         run: |

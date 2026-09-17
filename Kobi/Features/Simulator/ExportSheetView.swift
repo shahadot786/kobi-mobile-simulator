@@ -14,7 +14,9 @@ enum ExportMode: String, CaseIterable, Identifiable {
     case recording
     case blankMockup
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var title: String {
         switch self {
@@ -30,7 +32,9 @@ enum ResolutionScale: Int, CaseIterable, Identifiable {
     case x2 = 2
     case x3 = 3
 
-    var id: Int { rawValue }
+    var id: Int {
+        rawValue
+    }
 
     var label: String {
         switch self {
@@ -45,7 +49,9 @@ enum RecordingFormat: String, CaseIterable, Identifiable {
     case mp4
     case gif
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var label: String {
         switch self {
@@ -72,7 +78,9 @@ struct ExportSheetView: View {
     @State private var previewImage: NSImage?
     @State private var recordedFileURL: URL?
 
-    private var device: Device { viewModel.device }
+    private var device: Device {
+        viewModel.device
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -191,65 +199,6 @@ struct ExportSheetView: View {
         }
     }
 
-    // MARK: - Configuration
-
-    @ViewBuilder
-    private var configurationControls: some View {
-        switch exportMode {
-        case .snapshot, .blankMockup:
-            VStack(spacing: 12) {
-                Toggle("export.options.includeFrame", isOn: $includeFrame)
-                    .toggleStyle(.checkbox)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Toggle("export.options.transparentBg", isOn: $transparentBg)
-                    .toggleStyle(.checkbox)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                HStack {
-                    Text("export.resolution.label")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    Spacer()
-
-                    Picker("export.resolution.label", selection: $resolutionScale) {
-                        ForEach(ResolutionScale.allCases) { scale in
-                            Text(scale.label).tag(scale)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 140)
-                    .accessibilityLabel("export.resolution.label")
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-
-        case .recording:
-            HStack {
-                Text("export.format.label")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Picker("export.format.label", selection: $recordingFormat) {
-                    ForEach(RecordingFormat.allCases) { format in
-                        Text(format.label).tag(format)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 140)
-                .disabled(screenRecorder.isRecording)
-                .accessibilityLabel("export.format.label")
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-        }
-    }
-
     // MARK: - Actions
 
     private var actions: some View {
@@ -289,7 +238,10 @@ struct ExportSheetView: View {
                     .keyboardShortcut("s", modifiers: .command)
                 }
 
-                Button(screenRecorder.isRecording ? String(localized: "export.recording.stop") : String(localized: "export.recording.start")) {
+                Button(screenRecorder
+                    .isRecording ? String(localized: "export.recording.stop") :
+                    String(localized: "export.recording.start"))
+                {
                     Task { await toggleRecording() }
                 }
                 .buttonStyle(.borderedProminent)
@@ -481,5 +433,71 @@ struct ExportSheetView: View {
 
     private var displayedError: String? {
         errorMessage ?? screenRecorder.lastError
+    }
+}
+
+// MARK: - Configuration Controls
+
+//
+// Split into its own extension (rather than kept inline in the main struct) purely to keep
+// ExportSheetView's primary type body under this project's SwiftLint length limit — same file,
+// same access to private members, identical behavior.
+
+extension ExportSheetView {
+    @ViewBuilder
+    private var configurationControls: some View {
+        switch exportMode {
+        case .snapshot, .blankMockup:
+            VStack(spacing: 12) {
+                Toggle("export.options.includeFrame", isOn: $includeFrame)
+                    .toggleStyle(.checkbox)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Toggle("export.options.transparentBg", isOn: $transparentBg)
+                    .toggleStyle(.checkbox)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack {
+                    Text("export.resolution.label")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Picker("export.resolution.label", selection: $resolutionScale) {
+                        ForEach(ResolutionScale.allCases) { scale in
+                            Text(scale.label).tag(scale)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 140)
+                    .accessibilityLabel("export.resolution.label")
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+
+        case .recording:
+            HStack {
+                Text("export.format.label")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Picker("export.format.label", selection: $recordingFormat) {
+                    ForEach(RecordingFormat.allCases) { format in
+                        Text(format.label).tag(format)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 140)
+                .disabled(screenRecorder.isRecording)
+                .accessibilityLabel("export.format.label")
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+        }
     }
 }

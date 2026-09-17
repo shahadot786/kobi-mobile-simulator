@@ -125,7 +125,9 @@ struct WorkspacesSheetView: View {
                 : String(localized: "workspace.summary.devicePlural")
             return String(localized: "workspace.summary.canvas \(count) \(deviceWord) \(canvasSharedURL)")
         } else if let singleDevice {
-            return String(localized: "workspace.summary.single \(singleDevice.name) \(singleURL ?? "http://localhost:3000")")
+            return String(
+                localized: "workspace.summary.single \(singleDevice.name) \(singleURL ?? "http://localhost:3000")"
+            )
         } else {
             return String(localized: "workspace.summary.empty")
         }

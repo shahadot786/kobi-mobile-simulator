@@ -21,7 +21,9 @@ enum NetworkThrottlePreset: String, CaseIterable, Identifiable {
     case slow3G
     case offline
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var label: String {
         switch self {
@@ -32,7 +34,9 @@ enum NetworkThrottlePreset: String, CaseIterable, Identifiable {
         }
     }
 
-    var isOffline: Bool { self == .offline }
+    var isOffline: Bool {
+        self == .offline
+    }
 
     var latencyMilliseconds: UInt64 {
         switch self {
@@ -50,7 +54,7 @@ enum NetworkThrottlePreset: String, CaseIterable, Identifiable {
         switch self {
         case .none, .offline: nil
         case .fast4G: 187_500 // ~1.5 Mbps
-        case .slow3G: 50_000 // ~400 Kbps
+        case .slow3G: 50000 // ~400 Kbps
         }
     }
 }
@@ -133,16 +137,19 @@ final class ThrottleProxyServer {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
             guard let self else { return }
             var buffer = buffer
-            if let data { buffer.append(data) }
+            if let data {
+                buffer.append(data)
+            }
 
             if let headerEnd = buffer.range(of: Data("\r\n\r\n".utf8)) {
                 let headerData = buffer[..<headerEnd.lowerBound]
                 guard let headerText = String(data: headerData, encoding: .utf8),
-                      let request = ParsedHTTPRequest(headerText: headerText) else {
+                      let request = ParsedHTTPRequest(headerText: headerText)
+                else {
                     connection.cancel()
                     return
                 }
-                self.forward(request: request, on: connection)
+                forward(request: request, on: connection)
                 return
             }
 
@@ -150,7 +157,7 @@ final class ThrottleProxyServer {
                 connection.cancel()
                 return
             }
-            self.receiveRequest(on: connection, buffer: buffer)
+            receiveRequest(on: connection, buffer: buffer)
         }
     }
 
@@ -214,8 +221,12 @@ final class ThrottleProxyServer {
             let lowercasedKey = keyString.lowercased()
             // We already decoded the body via URLSession and aren't re-compressing/re-chunking
             // it, so these transport-level headers from the upstream response no longer apply.
-            if lowercasedKey == "content-encoding" || lowercasedKey == "transfer-encoding" { continue }
-            if lowercasedKey == "content-length" { sawContentLength = true }
+            if lowercasedKey == "content-encoding" || lowercasedKey == "transfer-encoding" {
+                continue
+            }
+            if lowercasedKey == "content-length" {
+                sawContentLength = true
+            }
             headerLines.append("\(keyString): \(valueString)")
         }
         if !sawContentLength {
@@ -236,7 +247,7 @@ final class ThrottleProxyServer {
         var offset = 0
         while offset < data.count {
             let end = min(offset + chunkSize, data.count)
-            await send(data.subdata(in: offset..<end), on: connection)
+            await send(data.subdata(in: offset ..< end), on: connection)
             offset = end
             if offset < data.count {
                 let delaySeconds = Double(chunkSize) / Double(bytesPerSecond)
@@ -259,14 +270,16 @@ final class ThrottleProxyServer {
 /// delivers as a plain (non-actor-isolated) closure — a `Bool` captured directly by that
 /// closure isn't provably safe to mutate under Swift's concurrency checker, even though it's
 /// only ever invoked serially on the `.main` queue we requested.
-nonisolated private final class OneShotFlag: @unchecked Sendable {
+private final nonisolated class OneShotFlag: @unchecked Sendable {
     private let lock = NSLock()
     private var hasFired = false
 
     func markFirstFire() -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        if hasFired { return false }
+        if hasFired {
+            return false
+        }
         hasFired = true
         return true
     }
@@ -288,7 +301,7 @@ private struct ParsedHTTPRequest {
         var parsedHeaders: [String: String] = [:]
         for line in lines.dropFirst() {
             guard let colonIndex = line.firstIndex(of: ":") else { continue }
-            let key = String(line[line.startIndex..<colonIndex]).trimmingCharacters(in: .whitespaces)
+            let key = String(line[line.startIndex ..< colonIndex]).trimmingCharacters(in: .whitespaces)
             let value = String(line[line.index(after: colonIndex)...]).trimmingCharacters(in: .whitespaces)
             parsedHeaders[key] = value
         }

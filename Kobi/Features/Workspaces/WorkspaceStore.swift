@@ -62,7 +62,8 @@ final class WorkspaceStore {
     private func loadWorkspaces() {
         if let data = UserDefaults.standard.data(forKey: Self.storageKey),
            let decoded = try? JSONDecoder().decode([Workspace].self, from: data),
-           !decoded.isEmpty {
+           !decoded.isEmpty
+        {
             workspaces = decoded
             return
         }
@@ -94,7 +95,7 @@ final class WorkspaceStore {
                         urlString: "http://localhost:3000",
                         positionX: 520,
                         positionY: 290
-                    )
+                    ),
                 ],
                 sharedURL: "http://localhost:3000",
                 isSharedURLMode: true,
@@ -121,12 +122,12 @@ final class WorkspaceStore {
                         urlString: "http://localhost:3000",
                         positionX: 780,
                         positionY: 290
-                    )
+                    ),
                 ],
                 sharedURL: "http://localhost:3000",
                 isSharedURLMode: true,
                 isScrollSyncEnabled: true
-            )
+            ),
         ]
     }
 }

@@ -8,7 +8,7 @@
 import Foundation
 
 struct WorkspaceFrameItem: Identifiable, Codable, Equatable, Sendable {
-    var id: UUID = UUID()
+    var id: UUID = .init()
     var deviceID: String
     var urlString: String
     var orientation: DeviceOrientation
