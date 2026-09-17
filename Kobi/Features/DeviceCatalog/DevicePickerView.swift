@@ -3,6 +3,7 @@
 //  Kobi
 //
 //  Phase 7 — Polish, search empty states, and accessibility
+//  Phase 11 — Grouped-by-brand sidebar, recently used, curated/full catalog toggle
 //
 
 import SwiftUI
@@ -14,58 +15,25 @@ struct DevicePickerView: View {
 
     @State private var isAddingCustomDevice = false
     @State private var deviceForDetail: Device?
+    @State private var collapsedBrands: Set<String> = []
 
     var body: some View {
         VStack(spacing: 0) {
             searchField
             categoryPicker
+            catalogScopeToggle
             Divider()
 
             if store.filteredDevices.isEmpty {
-                VStack(spacing: 8) {
-                    Spacer()
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 28))
-                        .foregroundStyle(.secondary)
-                    Text("deviceCatalog.search.empty.title")
-                        .font(.caption.weight(.medium))
-                    if !store.searchText.isEmpty {
-                        Button("deviceCatalog.search.empty.clear") {
-                            store.searchText = ""
-                        }
-                        .font(.caption)
-                    }
-                    Spacer()
-
-                    Button {
-                        isAddingCustomDevice = true
-                    } label: {
-                        Label("deviceCatalog.action.addCustomDevice", systemImage: "plus.circle")
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.bottom, 12)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                emptyState
             } else {
                 List {
-                    ForEach(store.filteredDevices) { device in
-                        DeviceRowView(
-                            device: device,
-                            isSelected: isSelected(device),
-                            isFavorite: store.isFavorite(device),
-                            onSelect: { onSelect(device) },
-                            onToggleFavorite: { store.toggleFavorite(device) },
-                            onShowDetail: { deviceForDetail = device }
-                        )
-                        .swipeActions(edge: .trailing) {
-                            if store.customDevices.contains(where: { $0.id == device.id }) {
-                                Button(role: .destructive) {
-                                    store.removeCustomDevice(device)
-                                } label: {
-                                    Label("deviceCatalog.action.delete", systemImage: "trash")
-                                }
-                            }
-                        }
+                    if store.searchText.isEmpty, !store.recentDevices.isEmpty {
+                        recentSection
+                    }
+
+                    ForEach(store.groupedFilteredDevices) { group in
+                        brandSection(group)
                     }
 
                     Button {
@@ -84,11 +52,106 @@ struct DevicePickerView: View {
         }
         .popover(item: $deviceForDetail) { device in
             DeviceDetailPopover(device: device) {
-                onSelect(device)
+                select(device)
                 deviceForDetail = nil
             }
         }
     }
+
+    private func select(_ device: Device) {
+        store.recordRecentlyUsed(device)
+        onSelect(device)
+    }
+
+    // MARK: - Recently used
+
+    private var recentSection: some View {
+        Section("deviceCatalog.section.recentlyUsed") {
+            ForEach(store.recentDevices) { device in
+                deviceRow(device)
+            }
+        }
+    }
+
+    // MARK: - Grouped by brand
+
+    private func brandSection(_ group: DeviceBrandGroup) -> some View {
+        DisclosureGroup(
+            isExpanded: Binding(
+                get: { !collapsedBrands.contains(group.brand) },
+                set: { isExpanded in
+                    if isExpanded {
+                        collapsedBrands.remove(group.brand)
+                    } else {
+                        collapsedBrands.insert(group.brand)
+                    }
+                }
+            )
+        ) {
+            ForEach(group.devices) { device in
+                deviceRow(device)
+            }
+        } label: {
+            Text(verbatim: group.brand)
+                .font(.subheadline.weight(.semibold))
+        }
+    }
+
+    private func deviceRow(_ device: Device) -> some View {
+        DeviceRowView(
+            device: device,
+            isSelected: isSelected(device),
+            isFavorite: store.isFavorite(device),
+            onSelect: { select(device) },
+            onToggleFavorite: { store.toggleFavorite(device) },
+            onShowDetail: { deviceForDetail = device }
+        )
+        .swipeActions(edge: .trailing) {
+            if store.customDevices.contains(where: { $0.id == device.id }) {
+                Button(role: .destructive) {
+                    store.removeCustomDevice(device)
+                } label: {
+                    Label("deviceCatalog.action.delete", systemImage: "trash")
+                }
+            }
+        }
+    }
+
+    // MARK: - Empty state
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Spacer()
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 28))
+                .foregroundStyle(.secondary)
+            Text("deviceCatalog.search.empty.title")
+                .font(.caption.weight(.medium))
+            if !store.searchText.isEmpty {
+                Button("deviceCatalog.search.empty.clear") {
+                    store.searchText = ""
+                }
+                .font(.caption)
+            } else if !store.showFullCatalog {
+                Button("deviceCatalog.action.showFullCatalog") {
+                    store.showFullCatalog = true
+                }
+                .font(.caption)
+            }
+            Spacer()
+
+            Button {
+                isAddingCustomDevice = true
+            } label: {
+                Label("deviceCatalog.action.addCustomDevice", systemImage: "plus.circle")
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 12)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Search / filters
 
     private var searchField: some View {
         HStack(spacing: 8) {
@@ -141,5 +204,13 @@ struct DevicePickerView: View {
                 )
         }
         .buttonStyle(.plain)
+    }
+
+    private var catalogScopeToggle: some View {
+        Toggle("deviceCatalog.action.showFullCatalog", isOn: $store.showFullCatalog)
+            .toggleStyle(.checkbox)
+            .font(.caption)
+            .padding(.horizontal, 8)
+            .padding(.bottom, 4)
     }
 }

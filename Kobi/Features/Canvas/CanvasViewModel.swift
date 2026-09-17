@@ -19,6 +19,18 @@ final class CanvasViewModel {
     var isSharedURLMode: Bool = true
     var isScrollSyncEnabled: Bool = false
 
+    /// Canvas-wide watch mode — only meaningful in shared-URL mode, since it polls
+    /// `sharedURLString` and reloads every frame together on change. See Phase 12 in
+    /// docs/ROADMAP_V2.md.
+    var isWatchModeEnabled: Bool = false {
+        didSet {
+            guard oldValue != isWatchModeEnabled else { return }
+            applyWatchMode()
+        }
+    }
+
+    private let autoReloadMonitor = AutoReloadMonitor()
+
     private static let gap: CGFloat = 24
     private static let canvasPadding: CGFloat = 40
 
@@ -39,10 +51,7 @@ final class CanvasViewModel {
         }
         guard canAddFrame else { return }
         let frame = SimulatorViewModel(device: device, initialURLString: sharedURLString)
-        frame.onScrollFraction = { [weak self, weak frame] fractionX, fractionY in
-            guard let self, let frame else { return }
-            relayScroll(from: frame, fractionX: fractionX, fractionY: fractionY)
-        }
+        wireSyncCallbacks(for: frame)
         framePositions[frame.id] = cascadePosition(forIndex: frames.count)
         frames.append(frame)
     }
@@ -56,12 +65,20 @@ final class CanvasViewModel {
         guard canAddFrame else { return }
         let frame = SimulatorViewModel(device: device, initialURLString: urlString)
         frame.orientation = orientation
+        wireSyncCallbacks(for: frame)
+        framePositions[frame.id] = position ?? cascadePosition(forIndex: frames.count)
+        frames.append(frame)
+    }
+
+    private func wireSyncCallbacks(for frame: SimulatorViewModel) {
         frame.onScrollFraction = { [weak self, weak frame] fractionX, fractionY in
             guard let self, let frame else { return }
             relayScroll(from: frame, fractionX: fractionX, fractionY: fractionY)
         }
-        framePositions[frame.id] = position ?? cascadePosition(forIndex: frames.count)
-        frames.append(frame)
+        frame.onInteraction = { [weak self, weak frame] event in
+            guard let self, let frame else { return }
+            relayInteraction(from: frame, event: event)
+        }
     }
 
     func clearAllFrames() {
@@ -121,6 +138,23 @@ final class CanvasViewModel {
         guard isScrollSyncEnabled else { return }
         for frame in frames where frame.id != source.id {
             frame.scrollTo(fractionX: fractionX, fractionY: fractionY)
+        }
+    }
+
+    private func relayInteraction(from source: SimulatorViewModel, event: InteractionSyncEvent) {
+        guard isScrollSyncEnabled else { return }
+        for frame in frames where frame.id != source.id {
+            frame.applyInteraction(event)
+        }
+    }
+
+    private func applyWatchMode() {
+        guard isWatchModeEnabled, isSharedURLMode, let url = URL(string: sharedURLString) else {
+            autoReloadMonitor.stop()
+            return
+        }
+        autoReloadMonitor.start(url: url) { [weak self] in
+            self?.broadcastSharedURL()
         }
     }
 }

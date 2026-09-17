@@ -7,6 +7,8 @@ import SwiftUI
 import WebKit
 
 private let scrollSyncMessageHandlerName = "kobiScrollSync"
+private let consoleMessageHandlerName = "kobiConsole"
+private let interactionSyncMessageHandlerName = "kobiInteractionSync"
 
 private let scrollSyncScriptSource = """
 (function() {
@@ -26,6 +28,105 @@ private let scrollSyncScriptSource = """
             scheduled = false;
         });
     }, { passive: true });
+})();
+"""
+
+/// Overrides `console.log/info/warn/error` to also forward to Swift, and listens for uncaught
+/// errors and unhandled promise rejections — the Phase 10 console/JS-error capture pipeline.
+/// Injected `atDocumentStart` so it's in place before any page script can log anything.
+private let consoleCaptureScriptSource = """
+(function() {
+    var send = function(level, args) {
+        try {
+            var message = Array.prototype.map.call(args, function(value) {
+                if (value instanceof Error) { return value.message; }
+                if (typeof value === 'object' && value !== null) {
+                    try { return JSON.stringify(value); } catch (e) { return String(value); }
+                }
+                return String(value);
+            }).join(' ');
+            window.webkit.messageHandlers.\(consoleMessageHandlerName).postMessage({ level: level, message: message });
+        } catch (e) {}
+    };
+    ['log', 'info', 'warn', 'error'].forEach(function(level) {
+        var original = console[level] ? console[level].bind(console) : function() {};
+        console[level] = function() {
+            send(level, arguments);
+            original.apply(console, arguments);
+        };
+    });
+    window.addEventListener('error', function(event) {
+        send('error', [event.message + ' (' + (event.filename || 'unknown') + ':' + (event.lineno || 0) + ')']);
+    });
+    window.addEventListener('unhandledrejection', function(event) {
+        var reason = event.reason;
+        var message = (reason && reason.message) ? reason.message : String(reason);
+        send('error', ['Unhandled promise rejection: ' + message]);
+    });
+})();
+"""
+
+/// Reports clicks and form input (with a CSS-path selector for the target) so a canvas of
+/// multiple frames can replay the same flow across every open device, and exposes
+/// `window.__kobiApplyInteraction` for the Swift side to replay an event it received from
+/// another frame. `window.__kobiApplyingInteractionSync` suppresses re-capturing a replayed
+/// event, since a synthetic `.click()`/dispatched `input`/`change` event is otherwise
+/// indistinguishable from a real one — see Phase 12 in docs/ROADMAP_V2.md.
+private let interactionSyncScriptSource = """
+(function() {
+    function cssPath(el) {
+        if (!(el instanceof Element)) { return null; }
+        var path = [];
+        while (el && el.nodeType === Node.ELEMENT_NODE) {
+            var selector = el.nodeName.toLowerCase();
+            if (el.id) {
+                selector += '#' + el.id;
+                path.unshift(selector);
+                break;
+            }
+            var sibling = el, nth = 1;
+            while (sibling.previousElementSibling) {
+                sibling = sibling.previousElementSibling;
+                if (sibling.nodeName.toLowerCase() === el.nodeName.toLowerCase()) { nth++; }
+            }
+            selector += ':nth-of-type(' + nth + ')';
+            path.unshift(selector);
+            el = el.parentElement;
+        }
+        return path.join(' > ');
+    }
+
+    window.__kobiApplyingInteractionSync = false;
+
+    document.addEventListener('click', function(event) {
+        if (window.__kobiApplyingInteractionSync) { return; }
+        var selector = cssPath(event.target);
+        if (!selector) { return; }
+        window.webkit.messageHandlers.\(interactionSyncMessageHandlerName)
+            .postMessage({ type: 'click', selector: selector });
+    }, true);
+
+    document.addEventListener('input', function(event) {
+        if (window.__kobiApplyingInteractionSync) { return; }
+        var selector = cssPath(event.target);
+        if (!selector || typeof event.target.value === 'undefined') { return; }
+        window.webkit.messageHandlers.\(interactionSyncMessageHandlerName)
+            .postMessage({ type: 'input', selector: selector, value: String(event.target.value) });
+    }, true);
+
+    window.__kobiApplyInteraction = function(type, selector, value) {
+        var el = document.querySelector(selector);
+        if (!el) { return; }
+        window.__kobiApplyingInteractionSync = true;
+        if (type === 'click') {
+            el.click();
+        } else if (type === 'input') {
+            el.value = value;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        window.__kobiApplyingInteractionSync = false;
+    };
 })();
 """
 
@@ -69,6 +170,8 @@ struct WebViewRepresentable: NSViewRepresentable {
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: scrollSyncMessageHandlerName)
         contentController.add(context.coordinator, name: keyboardVisibilityMessageHandlerName)
+        contentController.add(context.coordinator, name: consoleMessageHandlerName)
+        contentController.add(context.coordinator, name: interactionSyncMessageHandlerName)
         contentController.addUserScript(
             WKUserScript(source: scrollSyncScriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         )
@@ -85,6 +188,16 @@ struct WebViewRepresentable: NSViewRepresentable {
                 forMainFrameOnly: true
             )
         )
+        contentController.addUserScript(
+            WKUserScript(source: consoleCaptureScriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        )
+        contentController.addUserScript(
+            WKUserScript(
+                source: interactionSyncScriptSource,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
 
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = contentController
@@ -92,6 +205,7 @@ struct WebViewRepresentable: NSViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.customUserAgent = viewModel.device.userAgent
+        webView.isInspectable = true
         viewModel.webView = webView
 
         let overlay = TouchSimulationOverlayView()
@@ -138,6 +252,9 @@ struct WebViewRepresentable: NSViewRepresentable {
         webView.configuration.userContentController.removeScriptMessageHandler(forName: scrollSyncMessageHandlerName)
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: keyboardVisibilityMessageHandlerName)
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: consoleMessageHandlerName)
+        webView.configuration.userContentController
+            .removeScriptMessageHandler(forName: interactionSyncMessageHandlerName)
     }
 
     @MainActor
@@ -154,6 +271,7 @@ struct WebViewRepresentable: NSViewRepresentable {
             viewModel.isLoading = true
             viewModel.loadError = nil
             viewModel.isKeyboardOverlayVisible = false
+            viewModel.clearLogsForNewNavigation()
         }
 
         func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
@@ -187,6 +305,15 @@ struct WebViewRepresentable: NSViewRepresentable {
             case keyboardVisibilityMessageHandlerName:
                 guard let visible = body["visible"] as? Bool else { return }
                 viewModel.isKeyboardOverlayVisible = visible
+            case consoleMessageHandlerName:
+                guard let levelString = body["level"] as? String,
+                      let level = ConsoleLogLevel(rawValue: levelString),
+                      let message = body["message"] as? String else { return }
+                viewModel.appendConsoleLog(level: level, message: message)
+            case interactionSyncMessageHandlerName:
+                guard let type = body["type"] as? String, let selector = body["selector"] as? String else { return }
+                let value = body["value"] as? String
+                viewModel.reportInteraction(InteractionSyncEvent(type: type, selector: selector, value: value))
             default:
                 break
             }

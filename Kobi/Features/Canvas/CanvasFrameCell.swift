@@ -2,8 +2,13 @@
 //  CanvasFrameCell.swift
 //  Kobi
 //
+//  Phase 14 — per-frame recording: each cell gets its own `ScreenRecorder` + `RecordingRegion`
+//  (rather than the single shared region single-device mode uses), so recordings on different
+//  frames don't interfere with each other.
+//
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct CanvasFrameCell: View {
     @Bindable var frame: SimulatorViewModel
@@ -16,6 +21,11 @@ struct CanvasFrameCell: View {
     private let cellHeight: CGFloat = 420
     private let keyboardMoveStep: CGFloat = 20
 
+    @State private var isDevToolsPresented = false
+    @State private var screenRecorder = ScreenRecorder()
+    @State private var recordingRegion = RecordingRegion()
+    @State private var recordingError: String?
+
     var body: some View {
         VStack(spacing: 6) {
             header
@@ -27,7 +37,14 @@ struct CanvasFrameCell: View {
                     .onSubmit { frame.submitURL() }
             }
 
-            ZStack {
+            if let recordingError {
+                Text(recordingError)
+                    .font(.caption2)
+                    .foregroundStyle(KobiTheme.statusError)
+                    .lineLimit(2)
+            }
+
+            ZStack(alignment: .topLeading) {
                 DeviceFrameView(
                     device: frame.device,
                     orientation: frame.orientation,
@@ -37,12 +54,26 @@ struct CanvasFrameCell: View {
                 }
                 .scaleEffect(scale)
                 .frame(width: naturalSize.width * scale, height: naturalSize.height * scale)
+                .background(FrameRegionReader(region: recordingRegion))
+
+                if screenRecorder.isRecording {
+                    recordingBadge
+                }
 
                 if let error = frame.loadError {
                     errorOverlay(message: error)
                 }
             }
             .frame(height: cellHeight)
+            // Phase 13 — lazy-suspend: a low threshold means a card is only suspended once
+            // almost entirely scrolled out, avoiding flicker right at the viewport edge.
+            .kobiLazySuspend { isVisible in
+                if isVisible {
+                    frame.resume()
+                } else {
+                    frame.suspend()
+                }
+            }
         }
         .padding(10)
         .frame(width: CanvasViewModel.cardSize.width)
@@ -51,6 +82,20 @@ struct CanvasFrameCell: View {
         .scaleEffect(isBeingDragged ? 1.03 : 1)
         .opacity(isBeingDragged ? 0.9 : 1)
         .animation(.interactiveSpring(), value: isBeingDragged)
+        .sheet(isPresented: $isDevToolsPresented) {
+            DevToolsPanelView(viewModel: frame, onDismiss: { isDevToolsPresented = false })
+        }
+    }
+
+    private var recordingBadge: some View {
+        Text("canvas.frame.recordingBadge")
+            .font(.system(size: 8, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(KobiTheme.statusError, in: Capsule())
+            .padding(6)
+            .accessibilityLabel("\(String(localized: "canvas.frame.recordingBadge")): \(frame.device.name)")
     }
 
     private var header: some View {
@@ -91,7 +136,35 @@ struct CanvasFrameCell: View {
                 .font(.caption.weight(.medium))
                 .lineLimit(1)
 
+            if frame.jsErrorCount > 0 {
+                Button {
+                    isDevToolsPresented = true
+                } label: {
+                    Text(verbatim: "\(min(frame.jsErrorCount, 99))")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(4)
+                        .background(KobiTheme.statusError, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help("simulator.toolbar.devToolsHelp")
+                .accessibilityLabel("accessibility.simulator.devTools")
+            }
+
             Spacer()
+
+            Button {
+                Task { await toggleRecording() }
+            } label: {
+                Image(systemName: screenRecorder.isRecording ? "stop.circle.fill" : "record.circle")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(screenRecorder.isRecording ? KobiTheme.statusError : .secondary)
+            .help("canvas.frame.recordHelp")
+            .accessibilityLabel(
+                screenRecorder.isRecording
+                    ? String(localized: "canvas.frame.stopRecording") : String(localized: "canvas.frame.startRecording")
+            )
 
             Button {
                 frame.toggleOrientation()
@@ -115,6 +188,40 @@ struct CanvasFrameCell: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .help("canvas.frame.remove")
+        }
+    }
+
+    private func toggleRecording() async {
+        if screenRecorder.isRecording {
+            await stopRecording()
+        } else {
+            await startRecording()
+        }
+    }
+
+    private func startRecording() async {
+        recordingError = nil
+        guard recordingRegion.window != nil, !recordingRegion.frameInWindow.isEmpty else {
+            recordingError = String(localized: "export.error.noRegion")
+            return
+        }
+        do {
+            try await screenRecorder.start(region: recordingRegion)
+        } catch {
+            recordingError = error.localizedDescription
+        }
+    }
+
+    private func stopRecording() async {
+        do {
+            let tempURL = try await screenRecorder.stop()
+            _ = await CaptureExporter.save(
+                fileAt: tempURL,
+                suggestedName: "\(frame.device.id)-recording.mp4",
+                contentType: .mpeg4Movie
+            )
+        } catch {
+            recordingError = error.localizedDescription
         }
     }
 
@@ -150,5 +257,19 @@ struct CanvasFrameCell: View {
         }
         .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private extension View {
+    /// `onScrollVisibilityChange` is macOS 15+; this project's deployment target is macOS 14
+    /// (see docs/ROADMAP.md), so lazy-suspend degrades to a no-op on 14 rather than gating the
+    /// whole app on a newer OS for one performance optimization.
+    @ViewBuilder
+    func kobiLazySuspend(_ action: @escaping (Bool) -> Void) -> some View {
+        if #available(macOS 15.0, *) {
+            onScrollVisibilityChange(threshold: 0.1, action)
+        } else {
+            self
+        }
     }
 }

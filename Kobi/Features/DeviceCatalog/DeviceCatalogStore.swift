@@ -6,6 +6,13 @@
 import Foundation
 import Observation
 
+/// A brand's devices within the sidebar's grouped list — see Phase 11 in docs/ROADMAP_V2.md.
+struct DeviceBrandGroup: Identifiable {
+    let brand: String
+    let devices: [Device]
+    var id: String { brand }
+}
+
 @Observable
 final class DeviceCatalogStore {
     private(set) var seedDevices: [Device]
@@ -17,17 +24,46 @@ final class DeviceCatalogStore {
         didSet { persistFavorites() }
     }
 
+    private(set) var recentDeviceIDs: [String] {
+        didSet { persistRecentDevices() }
+    }
+
     var searchText: String = ""
     var selectedCategory: DeviceCategory?
     var showFavoritesOnly: Bool = false
 
+    /// When `false`, `filteredDevices` (with no active search) is limited to `curatedDeviceIDs`
+    /// so a new user isn't dropped into the full ~30-device catalog at once. Searching always
+    /// reaches the full catalog regardless of this toggle.
+    var showFullCatalog: Bool = false
+
     private static let customDevicesKey = "customDevices"
     private static let favoritesKey = "favoriteDeviceIDs"
+    private static let recentDevicesKey = "recentDeviceIDs"
+    private static let maxRecentDevices = 5
+
+    /// A small, hand-picked set of widely-used devices shown by default before the user opts
+    /// into browsing the full catalog via `showFullCatalog`.
+    private static let curatedDeviceIDs: Set<String> = [
+        "iphone-16-pro-max",
+        "iphone-16-pro",
+        "iphone-16",
+        "iphone-se-3",
+        "ipad-pro-12-9",
+        "ipad-air-m2",
+        "pixel-8-pro",
+        "pixel-8",
+        "galaxy-s24-ultra",
+        "galaxy-s24",
+        "apple-watch-series-9-45mm",
+        "desktop-1920x1080",
+    ]
 
     init() {
         seedDevices = DeviceCatalogLoader.loadSeedDevices()
         customDevices = Self.loadCustomDevices()
         favoriteIDs = Self.loadFavoriteIDs()
+        recentDeviceIDs = Self.loadRecentDeviceIDs()
     }
 
     var allDevices: [Device] {
@@ -35,15 +71,17 @@ final class DeviceCatalogStore {
     }
 
     var filteredDevices: [Device] {
-        allDevices.filter { device in
+        let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
+        return allDevices.filter { device in
             if showFavoritesOnly, !favoriteIDs.contains(device.id) {
                 return false
             }
             if let selectedCategory, device.category != selectedCategory {
                 return false
             }
-            let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
-            guard !query.isEmpty else { return true }
+            guard !query.isEmpty else {
+                return showFullCatalog || Self.curatedDeviceIDs.contains(device.id)
+            }
             if device.name.lowercased().contains(query) {
                 return true
             }
@@ -58,6 +96,29 @@ final class DeviceCatalogStore {
             }
             return false
         }
+    }
+
+    /// `filteredDevices` grouped by brand, alphabetically — feeds the sidebar's collapsible
+    /// brand sections.
+    var groupedFilteredDevices: [DeviceBrandGroup] {
+        let grouped = Dictionary(grouping: filteredDevices, by: \.brand)
+        return grouped.keys.sorted().map { brand in
+            DeviceBrandGroup(brand: brand, devices: grouped[brand, default: []].sorted { $0.name < $1.name })
+        }
+    }
+
+    var recentDevices: [Device] {
+        recentDeviceIDs.compactMap { id in allDevices.first { $0.id == id } }
+    }
+
+    func recordRecentlyUsed(_ device: Device) {
+        var ids = recentDeviceIDs
+        ids.removeAll { $0 == device.id }
+        ids.insert(device.id, at: 0)
+        if ids.count > Self.maxRecentDevices {
+            ids.removeLast(ids.count - Self.maxRecentDevices)
+        }
+        recentDeviceIDs = ids
     }
 
     func isFavorite(_ device: Device) -> Bool {
@@ -110,6 +171,7 @@ final class DeviceCatalogStore {
     func removeCustomDevice(_ device: Device) {
         customDevices.removeAll { $0.id == device.id }
         favoriteIDs.remove(device.id)
+        recentDeviceIDs.removeAll { $0 == device.id }
     }
 
     private func persistCustomDevices() {
@@ -119,6 +181,10 @@ final class DeviceCatalogStore {
 
     private func persistFavorites() {
         UserDefaults.standard.set(Array(favoriteIDs), forKey: Self.favoritesKey)
+    }
+
+    private func persistRecentDevices() {
+        UserDefaults.standard.set(recentDeviceIDs, forKey: Self.recentDevicesKey)
     }
 
     private static func loadCustomDevices() -> [Device] {
@@ -132,5 +198,9 @@ final class DeviceCatalogStore {
 
     private static func loadFavoriteIDs() -> Set<String> {
         Set(UserDefaults.standard.stringArray(forKey: favoritesKey) ?? [])
+    }
+
+    private static func loadRecentDeviceIDs() -> [String] {
+        UserDefaults.standard.stringArray(forKey: recentDevicesKey) ?? []
     }
 }
