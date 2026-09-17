@@ -4,6 +4,9 @@ DerivedData/
 *.xcodeproj/*
 !*.xcodeproj/project.pbxproj
 !*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+*.xcodeproj/project.xcworkspace/*
+!*.xcodeproj/project.xcworkspace/contents.xcworkspacedata
 !*.xcodeproj/project.xcworkspace/xcshareddata/
 *.xcworkspace/*
 !*.xcworkspace/contents.xcworkspacedata
@@ -62,6 +65,9 @@ npm-debug.log*
 
 # Internal planning docs (design brief, roadmap) — not tracked in git
 docs/
-.agents
-.mcp.json
+
 .kilo
+
+# MCP config (contains API keys) — not tracked in git
+.mcp.json
+.agents/
