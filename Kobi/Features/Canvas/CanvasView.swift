@@ -127,7 +127,8 @@ struct CanvasView: View {
             Text(verbatim: "\(canvasViewModel.frames.count)/\(CanvasViewModel.maxFrames)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .accessibilityLabel(String(localized: "accessibility.canvas.framesCount") + ": \(canvasViewModel.frames.count) / \(CanvasViewModel.maxFrames)")
+                .accessibilityLabel(String(localized: "accessibility.canvas.framesCount") +
+                    ": \(canvasViewModel.frames.count) / \(CanvasViewModel.maxFrames)")
         }
         .padding(10)
     }

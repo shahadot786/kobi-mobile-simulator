@@ -10,7 +10,9 @@ enum ViewMode: String, CaseIterable, Identifiable {
     case canvas
     case mockups
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var titleKey: LocalizedStringKey {
         switch self {
@@ -55,7 +57,9 @@ struct ContentView: View {
                         devices: catalogStore.allDevices.filter { mockupDeviceIDs.contains($0.id) },
                         onRemove: { mockupDeviceIDs.remove($0.id) },
                         onSelectAllFiltered: {
-                            for device in catalogStore.filteredDevices { mockupDeviceIDs.insert(device.id) }
+                            for device in catalogStore.filteredDevices {
+                                mockupDeviceIDs.insert(device.id)
+                            }
                         },
                         onClearSelection: { mockupDeviceIDs.removeAll() }
                     )
@@ -233,7 +237,8 @@ struct ContentView: View {
         } else {
             viewMode = .single
             if let deviceID = workspace.singleDeviceID,
-               let device = catalogStore.allDevices.first(where: { $0.id == deviceID }) {
+               let device = catalogStore.allDevices.first(where: { $0.id == deviceID })
+            {
                 if let existing = simulatorViewModel {
                     existing.device = device
                     if let url = workspace.singleDeviceURL {

@@ -20,7 +20,7 @@ struct OnboardingView: View {
         "iphone-15-pro",
         "google-pixel-8",
         "samsung-galaxy-s24",
-        "ipad-air-11-m2"
+        "ipad-air-11-m2",
     ]
 
     var body: some View {
@@ -39,7 +39,7 @@ struct OnboardingView: View {
         HStack {
             // Step Indicators
             HStack(spacing: 6) {
-                ForEach(0..<3) { idx in
+                ForEach(0 ..< 3) { idx in
                     Circle()
                         .fill(idx == currentStep ? KobiTheme.primaryAccent : Color.secondary.opacity(0.25))
                         .frame(width: 7, height: 7)
@@ -178,9 +178,11 @@ struct OnboardingView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .lineLimit(1)
 
-                    Text(verbatim: "\(device.viewportWidth) × \(device.viewportHeight) • \(String(format: "%.1f", device.pixelRatio))×")
-                        .telemetryFont(size: 10)
-                        .foregroundStyle(.secondary)
+                    Text(
+                        verbatim: "\(device.viewportWidth) × \(device.viewportHeight) • \(String(format: "%.1f", device.pixelRatio))×"
+                    )
+                    .telemetryFont(size: 10)
+                    .foregroundStyle(.secondary)
                 }
 
                 Spacer()

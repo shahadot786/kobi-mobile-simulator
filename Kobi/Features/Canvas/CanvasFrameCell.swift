@@ -137,7 +137,7 @@ struct CanvasFrameCell: View {
         return min(cellHeight / naturalSize.height, 1.5)
     }
 
-    private func errorOverlay(message: String) -> some View {
+    private func errorOverlay(message _: String) -> some View {
         VStack(spacing: 8) {
             Image(systemName: "wifi.exclamationmark")
                 .foregroundStyle(.secondary)

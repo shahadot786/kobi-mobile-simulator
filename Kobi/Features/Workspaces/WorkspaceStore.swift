@@ -18,33 +18,14 @@ final class WorkspaceStore {
         loadWorkspaces()
     }
 
-    func save(
-        name: String,
-        isCanvasMode: Bool,
-        singleDeviceID: String?,
-        singleDeviceURL: String?,
-        canvasFrames: [WorkspaceFrameItem],
-        sharedURL: String,
-        isSharedURLMode: Bool,
-        isScrollSyncEnabled: Bool
-    ) -> Workspace {
-        let workspace = Workspace(
-            id: UUID(),
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? String(localized: "workspace.untitled")
-                : name.trimmingCharacters(in: .whitespacesAndNewlines),
-            isCanvasMode: isCanvasMode,
-            singleDeviceID: singleDeviceID,
-            singleDeviceURL: singleDeviceURL,
-            canvasFrames: canvasFrames,
-            sharedURL: sharedURL,
-            isSharedURLMode: isSharedURLMode,
-            isScrollSyncEnabled: isScrollSyncEnabled,
-            createdAt: Date()
-        )
-        workspaces.insert(workspace, at: 0)
+    @discardableResult
+    func save(_ workspace: Workspace) -> Workspace {
+        var saved = workspace
+        let trimmedName = workspace.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        saved.name = trimmedName.isEmpty ? String(localized: "workspace.untitled") : trimmedName
+        workspaces.insert(saved, at: 0)
         persist()
-        return workspace
+        return saved
     }
 
     func delete(id: UUID) {
@@ -62,7 +43,8 @@ final class WorkspaceStore {
     private func loadWorkspaces() {
         if let data = UserDefaults.standard.data(forKey: Self.storageKey),
            let decoded = try? JSONDecoder().decode([Workspace].self, from: data),
-           !decoded.isEmpty {
+           !decoded.isEmpty
+        {
             workspaces = decoded
             return
         }
@@ -94,7 +76,7 @@ final class WorkspaceStore {
                         urlString: "http://localhost:3000",
                         positionX: 520,
                         positionY: 290
-                    )
+                    ),
                 ],
                 sharedURL: "http://localhost:3000",
                 isSharedURLMode: true,
@@ -121,12 +103,12 @@ final class WorkspaceStore {
                         urlString: "http://localhost:3000",
                         positionX: 780,
                         positionY: 290
-                    )
+                    ),
                 ],
                 sharedURL: "http://localhost:3000",
                 isSharedURLMode: true,
                 isScrollSyncEnabled: true
-            )
+            ),
         ]
     }
 }

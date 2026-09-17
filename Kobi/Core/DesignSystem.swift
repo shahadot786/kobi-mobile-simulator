@@ -17,6 +17,7 @@ enum KobiTheme {
     static let primaryAccent = Color(nsColor: .controlAccentColor)
 
     // MARK: - Diagnostics & Telemetry
+
     // Apple's system colors already shift hue/brightness between Light and Dark appearance
     // (e.g. systemGreen is #34c759 in Light, #30d158 in Dark) — using the NSColor-backed
     // variants instead of fixed hex literals keeps telemetry status colors correct in both.

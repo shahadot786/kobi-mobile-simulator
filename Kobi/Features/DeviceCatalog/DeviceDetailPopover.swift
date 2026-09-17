@@ -15,7 +15,10 @@ struct DeviceDetailPopover: View {
             Text(device.name)
                 .font(.headline)
 
-            specRow(labelKey: "deviceCatalog.detail.viewport", value: "\(device.viewportWidth) × \(device.viewportHeight)")
+            specRow(
+                labelKey: "deviceCatalog.detail.viewport",
+                value: "\(device.viewportWidth) × \(device.viewportHeight)"
+            )
             specRow(labelKey: "deviceCatalog.detail.dpr", value: formattedDPR)
 
             if let physicalWidth = device.physicalWidth, let physicalHeight = device.physicalHeight {
@@ -24,6 +27,40 @@ struct DeviceDetailPopover: View {
 
             if let diagonal = device.diagonalInches {
                 specRow(labelKey: "deviceCatalog.detail.diagonal", value: String(format: "%.1f\"", diagonal))
+            }
+
+            if let ppi = device.ppi {
+                specRow(labelKey: "deviceCatalog.detail.ppi", value: String(format: "%.0f ppi", ppi))
+            }
+
+            if let refreshRateHz = device.refreshRateHz {
+                specRow(labelKey: "deviceCatalog.detail.refreshRate", value: "\(refreshRateHz) Hz")
+            }
+
+            if let osVersion = device.osVersion {
+                specRow(labelKey: "deviceCatalog.detail.osVersion", value: osVersion)
+            }
+
+            if let browserEngine = device.browserEngine {
+                specRow(labelKey: "deviceCatalog.detail.browserEngine", value: browserEngine.rawValue.capitalized)
+            }
+
+            if let colorGamut = device.colorGamut {
+                specRow(labelKey: "deviceCatalog.detail.colorGamut", value: colorGamut.rawValue.uppercased())
+            }
+
+            if device.supportsHDR == true {
+                specRow(
+                    labelKey: "deviceCatalog.detail.hdr",
+                    value: String(localized: "deviceCatalog.detail.hdrSupported")
+                )
+            }
+
+            if let safeAreaInsets = device.safeAreaInsets {
+                specRow(
+                    labelKey: "deviceCatalog.detail.safeAreaInsets",
+                    value: "T\(Int(safeAreaInsets.portrait.top)) B\(Int(safeAreaInsets.portrait.bottom))"
+                )
             }
 
             if !device.userAgent.isEmpty {

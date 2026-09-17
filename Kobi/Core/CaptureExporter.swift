@@ -22,6 +22,23 @@ enum CaptureExportError: LocalizedError {
     }
 }
 
+/// Groups the device-chrome rendering parameters shared by `captureSnapshot`, `captureBlankMockup`,
+/// and the private `render` helper — keeps each call site under this project's parameter-count limit.
+struct CaptureDeviceOptions {
+    let device: Device
+    let orientation: DeviceOrientation
+    let includeFrame: Bool
+    let transparentBackground: Bool
+    let scale: CGFloat
+}
+
+/// A single frame contributed to a combined multi-device snapshot.
+struct CaptureFrame {
+    let device: Device
+    let orientation: DeviceOrientation
+    let webView: WKWebView
+}
+
 /// Captures live `WKWebView` content and/or device chrome into export-ready PNGs.
 ///
 /// The `WKWebView` snapshot is taken at the window's native backing scale; the requested
@@ -29,22 +46,9 @@ enum CaptureExportError: LocalizedError {
 /// simulated DPR — this mirrors how asset-catalog `@1x/@2x/@3x` export works elsewhere on macOS.
 @MainActor
 enum CaptureExporter {
-    static func captureSnapshot(
-        webView: WKWebView,
-        device: Device,
-        orientation: DeviceOrientation,
-        includeFrame: Bool,
-        transparentBackground: Bool,
-        scale: CGFloat
-    ) async throws -> NSImage {
+    static func captureSnapshot(webView: WKWebView, options: CaptureDeviceOptions) async throws -> NSImage {
         let contentImage = try await snapshot(of: webView)
-        return try render(
-            device: device,
-            orientation: orientation,
-            includeFrame: includeFrame,
-            transparentBackground: transparentBackground,
-            scale: scale
-        ) {
+        return try render(options: options) {
             Image(nsImage: contentImage)
         }
     }
@@ -57,29 +61,30 @@ enum CaptureExporter {
         scale: CGFloat
     ) throws -> NSImage {
         try render(
-            device: device,
-            orientation: orientation,
-            includeFrame: includeFrame,
-            transparentBackground: transparentBackground,
-            scale: scale
+            options: CaptureDeviceOptions(
+                device: device,
+                orientation: orientation,
+                includeFrame: includeFrame,
+                transparentBackground: transparentBackground,
+                scale: scale
+            )
         ) {
             Color.clear
         }
     }
 
-    static func captureCombinedCanvas(
-        frames: [(device: Device, orientation: DeviceOrientation, webView: WKWebView)],
-        scale: CGFloat
-    ) async throws -> NSImage {
+    static func captureCombinedCanvas(frames: [CaptureFrame], scale: CGFloat) async throws -> NSImage {
         var composites: [NSImage] = []
         for frame in frames {
             let contentImage = try await snapshot(of: frame.webView)
             let composite = try render(
-                device: frame.device,
-                orientation: frame.orientation,
-                includeFrame: true,
-                transparentBackground: true,
-                scale: scale
+                options: CaptureDeviceOptions(
+                    device: frame.device,
+                    orientation: frame.orientation,
+                    includeFrame: true,
+                    transparentBackground: true,
+                    scale: scale
+                )
             ) {
                 Image(nsImage: contentImage)
             }
@@ -177,22 +182,22 @@ enum CaptureExporter {
     }
 
     private static func render(
-        device: Device,
-        orientation: DeviceOrientation,
-        includeFrame: Bool,
-        transparentBackground: Bool,
-        scale: CGFloat,
+        options: CaptureDeviceOptions,
         @ViewBuilder content: @escaping () -> some View
     ) throws -> NSImage {
         // Hardware side buttons are drawn via `.offset` past the chassis's own frame, so
         // `ImageRenderer`'s ideal-size sizing (no `proposedSize` set) would otherwise clip them.
-        let composite = DeviceFrameView(device: device, orientation: orientation, isFrameVisible: includeFrame) {
+        let composite = DeviceFrameView(
+            device: options.device,
+            orientation: options.orientation,
+            isFrameVisible: options.includeFrame
+        ) {
             content()
         }
-        .padding(.horizontal, includeFrame ? 8 : 0)
+        .padding(.horizontal, options.includeFrame ? 8 : 0)
         let renderer = ImageRenderer(content: composite)
-        renderer.scale = scale
-        renderer.isOpaque = !transparentBackground
+        renderer.scale = options.scale
+        renderer.isOpaque = !options.transparentBackground
         guard let nsImage = renderer.nsImage else {
             throw CaptureExportError.renderFailed
         }

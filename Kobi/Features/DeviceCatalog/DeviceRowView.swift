@@ -47,7 +47,8 @@ struct DeviceRowView: View {
             .buttonStyle(.plain)
             .foregroundStyle(isFavorite ? .yellow : .secondary)
             .help("deviceCatalog.action.toggleFavorite")
-            .accessibilityLabel(isFavorite ? String(localized: "accessibility.device.unfavorite") : String(localized: "accessibility.device.favorite"))
+            .accessibilityLabel(isFavorite ? String(localized: "accessibility.device.unfavorite") :
+                String(localized: "accessibility.device.favorite"))
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
