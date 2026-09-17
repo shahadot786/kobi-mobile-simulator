@@ -9,6 +9,8 @@ import WebKit
 private let scrollSyncMessageHandlerName = "kobiScrollSync"
 private let consoleMessageHandlerName = "kobiConsole"
 private let interactionSyncMessageHandlerName = "kobiInteractionSync"
+private let perfMetricsMessageHandlerName = "kobiPerfMetrics"
+private let elementInspectorMessageHandlerName = "kobiElementInspector"
 
 private let scrollSyncScriptSource = """
 (function() {
@@ -159,6 +161,187 @@ private let pwaDisplayModeScriptSource = """
 })();
 """
 
+/// Best-effort lazy-suspend for cards scrolled out of the canvas viewport (Phase 13). Dispatches
+/// the standards-based Page Visibility signal (`document.hidden`/`visibilitychange`) — pages
+/// that already pause their own polling/animation loops in background tabs get that benefit
+/// here too — and freezes CSS animations/transitions directly, which works regardless of
+/// whether the page cooperates. This is intentionally not a hard stop of arbitrary JS (no public
+/// WebKit API for that) and doesn't unload the page, so scroll position and in-page state
+/// survive scrolling a card in and out of view repeatedly.
+private let offscreenSuspendScriptSource = """
+(function() {
+    var styleEl = null;
+    window.__kobiSetSuspended = function(suspended) {
+        if (suspended) {
+            try {
+                Object.defineProperty(document, 'hidden', { configurable: true, get: function() { return true; } });
+                Object.defineProperty(
+                    document, 'visibilityState', { configurable: true, get: function() { return 'hidden'; } }
+                );
+            } catch (e) {}
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.setAttribute('data-kobi-suspend', 'true');
+                styleEl.textContent = '*, *::before, *::after { '
+                    + 'animation-play-state: paused !important; transition: none !important; }';
+                document.head.appendChild(styleEl);
+            }
+        } else {
+            try {
+                delete document.hidden;
+                delete document.visibilityState;
+            } catch (e) {}
+            if (styleEl) {
+                styleEl.remove();
+                styleEl = null;
+            }
+        }
+        document.dispatchEvent(new Event('visibilitychange'));
+    };
+})();
+"""
+
+/// Core Web Vitals-style timing plus a count-based a11y pass (Phase 16) — not a full Lighthouse
+/// port. Runs ~2s after `load` to let Largest Contentful Paint settle (LCP can keep updating
+/// until first user interaction), and exposes `window.__kobiComputePerfMetrics` so the Swift
+/// side can re-run it on demand without a fresh navigation.
+private let perfMetricsScriptSource = """
+(function() {
+    window.__kobiCLS = 0;
+    try {
+        new PerformanceObserver(function(list) {
+            list.getEntries().forEach(function(entry) {
+                if (!entry.hadRecentInput) { window.__kobiCLS += entry.value; }
+            });
+        }).observe({ type: 'layout-shift', buffered: true });
+    } catch (e) {}
+
+    function computeAndSend() {
+        try {
+            var nav = performance.getEntriesByType('navigation')[0];
+            var ttfb = nav ? (nav.responseStart - nav.requestStart) : null;
+            var dcl = nav ? (nav.domContentLoadedEventEnd - nav.startTime) : null;
+            var loadTime = nav ? (nav.loadEventEnd - nav.startTime) : null;
+
+            var lcpEntries = performance.getEntriesByType('largest-contentful-paint');
+            var lcp = lcpEntries.length ? lcpEntries[lcpEntries.length - 1].startTime : null;
+
+            var imagesMissingAlt = 0;
+            document.querySelectorAll('img').forEach(function(img) {
+                if (!img.hasAttribute('alt') || img.getAttribute('alt').trim() === '') { imagesMissingAlt++; }
+            });
+
+            var buttonsMissingLabel = 0;
+            document.querySelectorAll('button, [role="button"]').forEach(function(btn) {
+                var hasText = btn.textContent && btn.textContent.trim().length > 0;
+                var hasAria = btn.hasAttribute('aria-label') || btn.hasAttribute('aria-labelledby');
+                if (!hasText && !hasAria) { buttonsMissingLabel++; }
+            });
+
+            var inputsMissingLabel = 0;
+            document.querySelectorAll('input, textarea, select').forEach(function(el) {
+                var type = (el.getAttribute('type') || '').toLowerCase();
+                if (type === 'hidden' || type === 'submit' || type === 'button') { return; }
+                var id = el.getAttribute('id');
+                var hasLabel = id && document.querySelector('label[for="' + id + '"]');
+                var hasAria = el.hasAttribute('aria-label') || el.hasAttribute('aria-labelledby');
+                if (!hasLabel && !hasAria) { inputsMissingLabel++; }
+            });
+
+            window.webkit.messageHandlers.\(perfMetricsMessageHandlerName).postMessage({
+                ttfb: ttfb,
+                domContentLoaded: dcl,
+                load: loadTime,
+                lcp: lcp,
+                cls: window.__kobiCLS,
+                imagesMissingAlt: imagesMissingAlt,
+                buttonsMissingLabel: buttonsMissingLabel,
+                inputsMissingLabel: inputsMissingLabel
+            });
+        } catch (e) {}
+    }
+
+    window.__kobiComputePerfMetrics = computeAndSend;
+
+    if (document.readyState === 'complete') {
+        setTimeout(computeAndSend, 2000);
+    } else {
+        window.addEventListener('load', function() {
+            setTimeout(computeAndSend, 2000);
+        });
+    }
+})();
+"""
+
+/// Hover-to-highlight + click-to-inspect box model (Phase 16). While enabled, clicks are
+/// intercepted (`preventDefault`/`stopPropagation`) to report the target instead of activating
+/// it — the same "inspect mode steals clicks" behavior real browser DevTools have.
+private let elementInspectorScriptSource = """
+(function() {
+    var overlay = null;
+    var enabled = false;
+
+    function ensureOverlay() {
+        if (overlay) { return overlay; }
+        overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.zIndex = '2147483647';
+        overlay.style.background = 'rgba(88, 166, 255, 0.25)';
+        overlay.style.border = '1px solid rgba(88, 166, 255, 0.9)';
+        overlay.style.display = 'none';
+        document.documentElement.appendChild(overlay);
+        return overlay;
+    }
+
+    function highlight(el) {
+        var rect = el.getBoundingClientRect();
+        var ov = ensureOverlay();
+        ov.style.left = rect.left + 'px';
+        ov.style.top = rect.top + 'px';
+        ov.style.width = rect.width + 'px';
+        ov.style.height = rect.height + 'px';
+        ov.style.display = 'block';
+    }
+
+    function boxModel(el) {
+        var style = window.getComputedStyle(el);
+        var rect = el.getBoundingClientRect();
+        return {
+            tagName: el.tagName.toLowerCase(),
+            elementID: el.id || null,
+            className: (el.className && typeof el.className === 'string') ? el.className : null,
+            width: rect.width,
+            height: rect.height,
+            margin: [style.marginTop, style.marginRight, style.marginBottom, style.marginLeft].join(' '),
+            border: [
+                style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth
+            ].join(' '),
+            padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft].join(' '),
+            fontSize: style.fontSize,
+            color: style.color
+        };
+    }
+
+    document.addEventListener('mouseover', function(event) {
+        if (!enabled) { return; }
+        highlight(event.target);
+    }, true);
+
+    document.addEventListener('click', function(event) {
+        if (!enabled) { return; }
+        event.preventDefault();
+        event.stopPropagation();
+        window.webkit.messageHandlers.\(elementInspectorMessageHandlerName).postMessage(boxModel(event.target));
+    }, true);
+
+    window.__kobiSetInspectorEnabled = function(value) {
+        enabled = value;
+        if (!enabled && overlay) { overlay.style.display = 'none'; }
+    };
+})();
+"""
+
 struct WebViewRepresentable: NSViewRepresentable {
     let viewModel: SimulatorViewModel
 
@@ -172,6 +355,8 @@ struct WebViewRepresentable: NSViewRepresentable {
         contentController.add(context.coordinator, name: keyboardVisibilityMessageHandlerName)
         contentController.add(context.coordinator, name: consoleMessageHandlerName)
         contentController.add(context.coordinator, name: interactionSyncMessageHandlerName)
+        contentController.add(context.coordinator, name: perfMetricsMessageHandlerName)
+        contentController.add(context.coordinator, name: elementInspectorMessageHandlerName)
         contentController.addUserScript(
             WKUserScript(source: scrollSyncScriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         )
@@ -194,6 +379,23 @@ struct WebViewRepresentable: NSViewRepresentable {
         contentController.addUserScript(
             WKUserScript(
                 source: interactionSyncScriptSource,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
+        contentController.addUserScript(
+            WKUserScript(
+                source: offscreenSuspendScriptSource,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
+        contentController.addUserScript(
+            WKUserScript(source: perfMetricsScriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        )
+        contentController.addUserScript(
+            WKUserScript(
+                source: elementInspectorScriptSource,
                 injectionTime: .atDocumentStart,
                 forMainFrameOnly: true
             )
@@ -235,6 +437,12 @@ struct WebViewRepresentable: NSViewRepresentable {
         webView.evaluateJavaScript(
             "window.__kobiSetStandalone && window.__kobiSetStandalone(\(viewModel.isKioskModeEnabled))"
         )
+        webView.evaluateJavaScript(
+            "window.__kobiSetSuspended && window.__kobiSetSuspended(\(viewModel.isSuspended))"
+        )
+        webView.evaluateJavaScript(
+            "window.__kobiSetInspectorEnabled && window.__kobiSetInspectorEnabled(\(viewModel.isElementInspectorEnabled))"
+        )
 
         if let keyboardOverlay = context.coordinator.keyboardOverlay {
             let height = min(webView.bounds.height * 0.38, 260)
@@ -255,6 +463,9 @@ struct WebViewRepresentable: NSViewRepresentable {
         webView.configuration.userContentController.removeScriptMessageHandler(forName: consoleMessageHandlerName)
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: interactionSyncMessageHandlerName)
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: perfMetricsMessageHandlerName)
+        webView.configuration.userContentController
+            .removeScriptMessageHandler(forName: elementInspectorMessageHandlerName)
     }
 
     @MainActor
@@ -314,9 +525,53 @@ struct WebViewRepresentable: NSViewRepresentable {
                 guard let type = body["type"] as? String, let selector = body["selector"] as? String else { return }
                 let value = body["value"] as? String
                 viewModel.reportInteraction(InteractionSyncEvent(type: type, selector: selector, value: value))
+            case perfMetricsMessageHandlerName:
+                viewModel.updatePerfMetrics(Self.perfMetrics(from: body))
+            case elementInspectorMessageHandlerName:
+                guard let element = Self.elementBoxModel(from: body) else { return }
+                viewModel.updateInspectedElement(element)
             default:
                 break
             }
+        }
+
+        private static func perfMetrics(from body: [String: Any]) -> PerfMetricsSnapshot {
+            PerfMetricsSnapshot(
+                timeToFirstByteMilliseconds: body["ttfb"] as? Double,
+                domContentLoadedMilliseconds: body["domContentLoaded"] as? Double,
+                loadMilliseconds: body["load"] as? Double,
+                largestContentfulPaintMilliseconds: body["lcp"] as? Double,
+                cumulativeLayoutShift: body["cls"] as? Double,
+                imagesMissingAltCount: body["imagesMissingAlt"] as? Int ?? 0,
+                buttonsMissingLabelCount: body["buttonsMissingLabel"] as? Int ?? 0,
+                inputsMissingLabelCount: body["inputsMissingLabel"] as? Int ?? 0
+            )
+        }
+
+        private static func elementBoxModel(from body: [String: Any]) -> ElementBoxModel? {
+            guard let tagName = body["tagName"] as? String,
+                  let width = body["width"] as? Double,
+                  let height = body["height"] as? Double,
+                  let margin = body["margin"] as? String,
+                  let border = body["border"] as? String,
+                  let padding = body["padding"] as? String,
+                  let fontSize = body["fontSize"] as? String,
+                  let color = body["color"] as? String
+            else {
+                return nil
+            }
+            return ElementBoxModel(
+                tagName: tagName,
+                elementID: body["elementID"] as? String,
+                className: body["className"] as? String,
+                width: width,
+                height: height,
+                margin: margin,
+                border: border,
+                padding: padding,
+                fontSize: fontSize,
+                color: color
+            )
         }
     }
 }

@@ -30,3 +30,31 @@ struct NetworkLogEntry: Identifiable, Equatable {
     let byteCount: Int
     let timestamp: Date
 }
+
+/// Core Web Vitals-style timing plus a lightweight, count-based a11y pass — Phase 16. Not a
+/// full Lighthouse port: the a11y checks are structural presence checks (missing alt/label),
+/// not full WCAG contrast/semantics analysis.
+struct PerfMetricsSnapshot: Equatable {
+    let timeToFirstByteMilliseconds: Double?
+    let domContentLoadedMilliseconds: Double?
+    let loadMilliseconds: Double?
+    let largestContentfulPaintMilliseconds: Double?
+    let cumulativeLayoutShift: Double?
+    let imagesMissingAltCount: Int
+    let buttonsMissingLabelCount: Int
+    let inputsMissingLabelCount: Int
+}
+
+/// The computed box model for a clicked element in element-inspector mode — Phase 16.
+struct ElementBoxModel: Equatable {
+    let tagName: String
+    let elementID: String?
+    let className: String?
+    let width: Double
+    let height: Double
+    let margin: String
+    let border: String
+    let padding: String
+    let fontSize: String
+    let color: String
+}

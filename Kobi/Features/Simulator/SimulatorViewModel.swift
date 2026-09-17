@@ -93,9 +93,26 @@ final class SimulatorViewModel: Identifiable {
 
     private(set) var consoleLogEntries: [ConsoleLogEntry] = []
     private(set) var networkLogEntries: [NetworkLogEntry] = []
+    private(set) var perfMetrics: PerfMetricsSnapshot?
+    private(set) var inspectedElement: ElementBoxModel?
 
     var jsErrorCount: Int {
         consoleLogEntries.filter { $0.level == .error }.count
+    }
+
+    /// Hover-to-highlight + click-to-inspect box model — Phase 16. Toggling this on makes the
+    /// page's own click handling stop working (the injected script intercepts clicks to report
+    /// the target element instead), matching how real DevTools' inspect mode behaves.
+    var isElementInspectorEnabled: Bool = false {
+        didSet {
+            guard oldValue != isElementInspectorEnabled else { return }
+            if !isElementInspectorEnabled {
+                inspectedElement = nil
+            }
+            webView?.evaluateJavaScript(
+                "window.__kobiSetInspectorEnabled && window.__kobiSetInspectorEnabled(\(isElementInspectorEnabled))"
+            )
+        }
     }
 
     var urlString: String
@@ -105,6 +122,15 @@ final class SimulatorViewModel: Identifiable {
     var loadError: String?
     var canGoBack: Bool = false
     var canGoForward: Bool = false
+
+    /// True while this frame is scrolled out of the canvas viewport and lazy-suspended — see
+    /// Phase 13 in docs/ROADMAP_V2.md. Best-effort: dispatches a standards-based
+    /// `visibilitychange` signal (many pages already pause their own polling/animations on
+    /// `document.hidden`) and freezes CSS animations/transitions directly. It does not force a
+    /// hard stop of arbitrary page JS — WebKit has no public API for that — and deliberately
+    /// avoids unloading the page, which would lose scroll position and in-page state every time
+    /// a card scrolls in and out of view.
+    private(set) var isSuspended = false
 
     weak var webView: WKWebView?
     private var throttleProxy: ThrottleProxyServer?
@@ -193,10 +219,32 @@ final class SimulatorViewModel: Identifiable {
     func clearLogsForNewNavigation() {
         consoleLogEntries.removeAll()
         networkLogEntries.removeAll()
+        perfMetrics = nil
     }
 
     func clearConsoleLogs() {
         consoleLogEntries.removeAll()
+    }
+
+    func clearNetworkLogs() {
+        networkLogEntries.removeAll()
+    }
+
+    // MARK: - Performance / a11y metrics (Phase 16)
+
+    func updatePerfMetrics(_ snapshot: PerfMetricsSnapshot) {
+        perfMetrics = snapshot
+    }
+
+    /// Re-runs the injected metrics pass on demand, without waiting for a fresh page load.
+    func refreshPerfMetrics() {
+        webView?.evaluateJavaScript("window.__kobiComputePerfMetrics && window.__kobiComputePerfMetrics()")
+    }
+
+    // MARK: - Element inspector (Phase 16)
+
+    func updateInspectedElement(_ element: ElementBoxModel) {
+        inspectedElement = element
     }
 
     // MARK: - Watch mode (auto-reload)
@@ -209,6 +257,20 @@ final class SimulatorViewModel: Identifiable {
         autoReloadMonitor.start(url: currentURL) { [weak self] in
             self?.reload()
         }
+    }
+
+    // MARK: - Lazy-suspend (Phase 13)
+
+    func suspend() {
+        guard !isSuspended else { return }
+        isSuspended = true
+        webView?.evaluateJavaScript("window.__kobiSetSuspended && window.__kobiSetSuspended(true)")
+    }
+
+    func resume() {
+        guard isSuspended else { return }
+        isSuspended = false
+        webView?.evaluateJavaScript("window.__kobiSetSuspended && window.__kobiSetSuspended(false)")
     }
 
     // MARK: - Network throttling / logging proxy
@@ -303,7 +365,7 @@ final class SimulatorViewModel: Identifiable {
     func applyInteraction(_ event: InteractionSyncEvent) {
         let type = Self.jsStringLiteral(event.type)
         let selector = Self.jsStringLiteral(event.selector)
-        let value = event.value.map(Self.jsStringLiteral) ?? "null"
+        let value = event.value.map { Self.jsStringLiteral($0) } ?? "null"
         webView?.evaluateJavaScript(
             "window.__kobiApplyInteraction && window.__kobiApplyInteraction(\(type), \(selector), \(value))"
         )

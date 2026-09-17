@@ -9,9 +9,13 @@ import WebKit
 
 @Observable
 final class CanvasViewModel {
-    static let maxFrames = 6
+    // Phase 13 — raised from 6 to 20; ships together with lazy-suspend (`SimulatorViewModel
+    // .suspend()/.resume()`, wired via `onScrollVisibilityChange` in `CanvasFrameCell`) and the
+    // live resource indicator in `CanvasView`'s toolbar, not as a bare constant change — see
+    // docs/ROADMAP_V2.md Phase 13.
+    static let maxFrames = 20
     static let cardSize = CGSize(width: 280, height: 500)
-    static let canvasSize = CGSize(width: 2400, height: 1600)
+    static let canvasSize = CGSize(width: 2400, height: 2000)
 
     private(set) var frames: [SimulatorViewModel] = []
     private(set) var framePositions: [UUID: CGPoint] = [:]

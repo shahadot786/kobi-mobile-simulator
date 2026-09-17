@@ -31,6 +31,10 @@ struct ContentView: View {
     @State private var viewMode: ViewMode = .single
     @State private var mockupDeviceIDs: Set<String> = []
 
+    /// Phase 15 — periodic draft autosave of the open canvas layout; see
+    /// `WorkspaceStore.saveDraft`/`loadDraft` for the clean-quit-vs-crash restore semantics.
+    @State private var draftAutosaveTimer: Timer?
+
     var body: some View {
         NavigationSplitView {
             DevicePickerView(
@@ -51,7 +55,7 @@ struct ContentView: View {
                         emptyState
                     }
                 case .canvas:
-                    CanvasView(canvasViewModel: canvasViewModel)
+                    CanvasView(canvasViewModel: canvasViewModel, catalogStore: catalogStore)
                 case .mockups:
                     MockupLibraryView(
                         devices: catalogStore.allDevices.filter { mockupDeviceIDs.contains($0.id) },
@@ -68,7 +72,7 @@ struct ContentView: View {
         }
         .frame(minWidth: 760, minHeight: 560)
         .onAppear {
-            if simulatorViewModel == nil {
+            if !restoreDraftIfAvailable(), simulatorViewModel == nil {
                 let devices = catalogStore.allDevices
                 if let device = devices.first(where: { $0.id == "iphone-15-pro" }) ?? devices.first {
                     simulatorViewModel = SimulatorViewModel(device: device)
@@ -78,6 +82,8 @@ struct ContentView: View {
             if !appState.hasCompletedOnboarding {
                 appState.isOnboardingPresented = true
             }
+
+            startDraftAutosave()
         }
         .sheet(isPresented: Bindable(appState).isOnboardingPresented) {
             OnboardingView(
@@ -138,6 +144,11 @@ struct ContentView: View {
             else { return }
             loadWorkspace(workspace)
             appState.pendingWorkspaceID = nil
+        }
+        .onChange(of: appState.pendingFavoriteSlotSelection) { _, slot in
+            guard let slot else { return }
+            selectFavoriteSlot(slot)
+            appState.pendingFavoriteSlotSelection = nil
         }
         .background {
             // Invisible shortcut listeners for view switching and workspaces
@@ -252,6 +263,60 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Draft autosave / restore (Phase 15)
+
+    /// Returns `true` if a non-empty draft was found and restored, so `onAppear` knows not to
+    /// also fall back to its default single-device selection.
+    @discardableResult
+    private func restoreDraftIfAvailable() -> Bool {
+        guard let draft = WorkspaceStore.loadDraft(), !draft.canvasFrames.isEmpty else { return false }
+        loadWorkspace(draft)
+        return true
+    }
+
+    private func startDraftAutosave() {
+        draftAutosaveTimer?.invalidate()
+        draftAutosaveTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
+            Task { @MainActor in
+                saveDraftSnapshot()
+            }
+        }
+    }
+
+    private func saveDraftSnapshot() {
+        guard viewMode == .canvas, !canvasViewModel.frames.isEmpty else {
+            WorkspaceStore.clearDraft()
+            return
+        }
+        let frameItems = canvasViewModel.frames.map { frame in
+            let position = canvasViewModel.position(for: frame.id)
+            return WorkspaceFrameItem(
+                deviceID: frame.device.id,
+                urlString: frame.urlString,
+                orientation: frame.orientation,
+                positionX: Double(position.x),
+                positionY: Double(position.y)
+            )
+        }
+        let draft = Workspace(
+            name: String(localized: "workspace.draftName"),
+            isCanvasMode: true,
+            canvasFrames: frameItems,
+            sharedURL: canvasViewModel.sharedURLString,
+            isSharedURLMode: canvasViewModel.isSharedURLMode,
+            isScrollSyncEnabled: canvasViewModel.isScrollSyncEnabled
+        )
+        WorkspaceStore.saveDraft(draft)
+    }
+
+    // MARK: - Number-key device switching (Phase 15)
+
+    private func selectFavoriteSlot(_ slot: Int) {
+        let favorites = catalogStore.allDevices.filter { catalogStore.isFavorite($0) }
+        guard favorites.indices.contains(slot - 1) else { return }
+        selectDevice(favorites[slot - 1])
     }
 
     private var emptyState: some View {

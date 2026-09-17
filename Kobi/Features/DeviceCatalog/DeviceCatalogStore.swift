@@ -10,7 +10,9 @@ import Observation
 struct DeviceBrandGroup: Identifiable {
     let brand: String
     let devices: [Device]
-    var id: String { brand }
+    var id: String {
+        brand
+    }
 }
 
 @Observable

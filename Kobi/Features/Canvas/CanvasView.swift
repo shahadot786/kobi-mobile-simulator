@@ -8,11 +8,18 @@ import UniformTypeIdentifiers
 
 struct CanvasView: View {
     @Bindable var canvasViewModel: CanvasViewModel
+    let catalogStore: DeviceCatalogStore
     @Environment(AppState.self) private var appState
     @State private var isExportingCanvas = false
     @State private var canvasExportError: String?
     @State private var showCanvasCopiedAlert = false
     @FocusState private var isSharedURLFieldFocused: Bool
+
+    /// Live memory/CPU indicator (Phase 13) — only runs while canvas mode is on-screen.
+    @State private var resourceMonitor = ResourceMonitor()
+
+    /// Cross-device diff (Phase 16)
+    @State private var isCompareSheetPresented = false
 
     // Freeform placement — each card has its own (x, y) on a large pannable canvas
     // (`CanvasViewModel.canvasSize`); dragging just moves the card to wherever it's released,
@@ -55,6 +62,9 @@ struct CanvasView: View {
                         }
                     }
                     .frame(width: CanvasViewModel.canvasSize.width, height: CanvasViewModel.canvasSize.height)
+                    .dropDestination(for: String.self) { deviceIDs, location in
+                        handleDrop(deviceIDs: deviceIDs, at: location)
+                    }
                 }
             }
         }
@@ -62,12 +72,27 @@ struct CanvasView: View {
             guard canvasViewModel.isSharedURLMode else { return }
             isSharedURLFieldFocused = true
         }
+        .onAppear { resourceMonitor.start() }
+        .onDisappear { resourceMonitor.stop() }
     }
 
     private func currentPosition(for frame: SimulatorViewModel) -> CGPoint {
         let base = canvasViewModel.position(for: frame.id)
         guard frame.id == draggedFrameID else { return base }
         return CGPoint(x: base.x + dragTranslation.width, y: base.y + dragTranslation.height)
+    }
+
+    /// Dropping a device row from the sidebar (Phase 11) adds a frame at the release point, in
+    /// addition to the existing tap-to-toggle flow in `CanvasViewModel.toggleFrame`.
+    @discardableResult
+    private func handleDrop(deviceIDs: [String], at location: CGPoint) -> Bool {
+        guard let deviceID = deviceIDs.first,
+              let device = catalogStore.allDevices.first(where: { $0.id == deviceID })
+        else {
+            return false
+        }
+        canvasViewModel.addFrame(for: device, urlString: canvasViewModel.sharedURLString, position: location)
+        return true
     }
 
     private func handleDragChanged(frameID: UUID, translation: CGSize) {
@@ -103,6 +128,12 @@ struct CanvasView: View {
             Toggle("canvas.toolbar.scrollSync", isOn: $canvasViewModel.isScrollSyncEnabled)
                 .toggleStyle(.checkbox)
 
+            if canvasViewModel.isSharedURLMode {
+                Toggle("simulator.toolbar.watch", isOn: $canvasViewModel.isWatchModeEnabled)
+                    .toggleStyle(.checkbox)
+                    .help("simulator.toolbar.watchHelp")
+            }
+
             Spacer()
 
             if showCanvasCopiedAlert {
@@ -129,8 +160,37 @@ struct CanvasView: View {
                 .foregroundStyle(.secondary)
                 .accessibilityLabel(String(localized: "accessibility.canvas.framesCount") +
                     ": \(canvasViewModel.frames.count) / \(CanvasViewModel.maxFrames)")
+
+            if !canvasViewModel.frames.isEmpty {
+                resourceUsageIndicator
+            }
         }
         .padding(10)
+    }
+
+    /// Sums resident memory and %CPU across every `WKWebView` content process this app has
+    /// spawned — see `ResourceMonitor` for why that's a separate-process measurement, not
+    /// something derivable from this app's own footprint.
+    private var resourceUsageIndicator: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "gauge.with.dots.needle.50percent")
+                .font(.system(size: 9))
+            Text(
+                verbatim: "\(Int(resourceMonitor.residentMemoryMB)) MB · \(String(format: "%.0f", resourceMonitor.cpuPercent))% CPU"
+            )
+            .telemetryFont(size: 10)
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(Color.primary.opacity(0.05))
+        .clipShape(Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "\(String(localized: "accessibility.canvas.resourceUsage")): "
+                + "\(Int(resourceMonitor.residentMemoryMB)) MB, \(Int(resourceMonitor.cpuPercent))% CPU, "
+                + "\(resourceMonitor.processCount) \(String(localized: "accessibility.canvas.webProcesses"))"
+        )
     }
 
     private enum CombinedExportAction {
@@ -179,5 +239,8 @@ struct CanvasView: View {
                 .frame(maxWidth: 320)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .dropDestination(for: String.self) { deviceIDs, location in
+            handleDrop(deviceIDs: deviceIDs, at: location)
+        }
     }
 }

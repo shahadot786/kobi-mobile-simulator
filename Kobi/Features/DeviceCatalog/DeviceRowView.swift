@@ -56,5 +56,14 @@ struct DeviceRowView: View {
             isSelected ? Color.accentColor.opacity(0.12) : Color.clear,
             in: RoundedRectangle(cornerRadius: 6, style: .continuous)
         )
+        // Phase 11 — dragged onto the canvas to drop a frame at the release point; the id alone
+        // is transferred (String already conforms to Transferable) and resolved back to a
+        // `Device` by the drop target, which already has the full catalog in scope.
+        .draggable(device.id) {
+            Text(device.name)
+                .font(.caption)
+                .padding(6)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
     }
 }

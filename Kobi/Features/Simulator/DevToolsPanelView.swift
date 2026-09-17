@@ -14,13 +14,19 @@ struct DevToolsPanelView: View {
     private enum Tab: String, CaseIterable, Identifiable {
         case console
         case network
+        case performance
+        case inspector
 
-        var id: String { rawValue }
+        var id: String {
+            rawValue
+        }
 
         var title: String {
             switch self {
             case .console: String(localized: "devTools.tab.console")
             case .network: String(localized: "devTools.tab.network")
+            case .performance: String(localized: "devTools.tab.performance")
+            case .inspector: String(localized: "devTools.tab.inspector")
             }
         }
     }
@@ -47,6 +53,8 @@ struct DevToolsPanelView: View {
             switch selectedTab {
             case .console: consoleList
             case .network: networkList
+            case .performance: performanceView
+            case .inspector: inspectorView
             }
         }
         .frame(width: 560, height: 420)
@@ -60,14 +68,28 @@ struct DevToolsPanelView: View {
 
             Spacer()
 
-            Button("devTools.action.clear") {
-                switch selectedTab {
-                case .console: viewModel.clearConsoleLogs()
-                case .network: break
+            if selectedTab == .performance {
+                Button("devTools.action.refresh") {
+                    viewModel.refreshPerfMetrics()
                 }
+                .font(.caption)
             }
-            .font(.caption)
-            .disabled(selectedTab == .console && viewModel.consoleLogEntries.isEmpty)
+
+            if selectedTab == .console {
+                Button("devTools.action.clear") {
+                    viewModel.clearConsoleLogs()
+                }
+                .font(.caption)
+                .disabled(viewModel.consoleLogEntries.isEmpty)
+            }
+
+            if selectedTab == .network {
+                Button("devTools.action.clear") {
+                    viewModel.clearNetworkLogs()
+                }
+                .font(.caption)
+                .disabled(viewModel.networkLogEntries.isEmpty)
+            }
 
             Button {
                 onDismiss()
@@ -86,17 +108,16 @@ struct DevToolsPanelView: View {
         .padding(.bottom, 12)
     }
 
+    @ViewBuilder
     private var consoleList: some View {
-        Group {
-            if viewModel.consoleLogEntries.isEmpty {
-                emptyState(labelKey: "devTools.console.empty")
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(viewModel.consoleLogEntries) { entry in
-                            consoleRow(entry)
-                            Divider()
-                        }
+        if viewModel.consoleLogEntries.isEmpty {
+            emptyState(labelKey: "devTools.console.empty")
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(viewModel.consoleLogEntries) { entry in
+                        consoleRow(entry)
+                        Divider()
                     }
                 }
             }
@@ -143,17 +164,16 @@ struct DevToolsPanelView: View {
         }
     }
 
+    @ViewBuilder
     private var networkList: some View {
-        Group {
-            if viewModel.networkLogEntries.isEmpty {
-                emptyState(labelKey: "devTools.network.empty")
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(viewModel.networkLogEntries) { entry in
-                            networkRow(entry)
-                            Divider()
-                        }
+        if viewModel.networkLogEntries.isEmpty {
+            emptyState(labelKey: "devTools.network.empty")
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(viewModel.networkLogEntries) { entry in
+                        networkRow(entry)
+                        Divider()
                     }
                 }
             }
@@ -195,9 +215,9 @@ struct DevToolsPanelView: View {
     private func statusColor(for statusCode: Int?) -> Color {
         guard let statusCode else { return .secondary }
         switch statusCode {
-        case 200 ..< 400: KobiTheme.statusOnline
-        case 400 ..< 500: KobiTheme.statusWarning
-        default: KobiTheme.statusError
+        case 200 ..< 400: return KobiTheme.statusOnline
+        case 400 ..< 500: return KobiTheme.statusWarning
+        default: return KobiTheme.statusError
         }
     }
 
@@ -215,5 +235,156 @@ struct DevToolsPanelView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Performance (Phase 16)
+
+    @ViewBuilder
+    private var performanceView: some View {
+        if let metrics = viewModel.perfMetrics {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    perfMetricsSection(
+                        titleKey: "devTools.performance.timing",
+                        rows: [
+                            PerfMetricRow(
+                                titleKey: "devTools.performance.ttfb",
+                                value: formattedMilliseconds(metrics.timeToFirstByteMilliseconds)
+                            ),
+                            PerfMetricRow(
+                                titleKey: "devTools.performance.domContentLoaded",
+                                value: formattedMilliseconds(metrics.domContentLoadedMilliseconds)
+                            ),
+                            PerfMetricRow(
+                                titleKey: "devTools.performance.load",
+                                value: formattedMilliseconds(metrics.loadMilliseconds)
+                            ),
+                            PerfMetricRow(
+                                titleKey: "devTools.performance.lcp",
+                                value: formattedMilliseconds(metrics.largestContentfulPaintMilliseconds)
+                            ),
+                            PerfMetricRow(
+                                titleKey: "devTools.performance.cls",
+                                value: formattedCLS(metrics.cumulativeLayoutShift)
+                            ),
+                        ]
+                    )
+
+                    perfMetricsSection(
+                        titleKey: "devTools.performance.accessibility",
+                        rows: [
+                            PerfMetricRow(
+                                titleKey: "devTools.performance.imagesMissingAlt",
+                                value: "\(metrics.imagesMissingAltCount)"
+                            ),
+                            PerfMetricRow(
+                                titleKey: "devTools.performance.buttonsMissingLabel",
+                                value: "\(metrics.buttonsMissingLabelCount)"
+                            ),
+                            PerfMetricRow(
+                                titleKey: "devTools.performance.inputsMissingLabel",
+                                value: "\(metrics.inputsMissingLabelCount)"
+                            ),
+                        ]
+                    )
+                }
+                .padding(20)
+            }
+        } else {
+            emptyState(labelKey: "devTools.performance.empty")
+        }
+    }
+
+    private struct PerfMetricRow: Identifiable {
+        let id = UUID()
+        let titleKey: LocalizedStringKey
+        let value: String
+    }
+
+    private func perfMetricsSection(titleKey: LocalizedStringKey, rows: [PerfMetricRow]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(titleKey)
+                .font(.subheadline.weight(.semibold))
+            ForEach(rows) { row in
+                HStack {
+                    Text(row.titleKey)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(verbatim: row.value)
+                        .font(.caption)
+                        .fontDesign(.monospaced)
+                        .textSelection(.enabled)
+                }
+            }
+        }
+    }
+
+    private func formattedMilliseconds(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return String(format: "%.0f ms", value)
+    }
+
+    private func formattedCLS(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return String(format: "%.3f", value)
+    }
+
+    // MARK: - Element inspector (Phase 16)
+
+    private var inspectorView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle("devTools.inspector.enable", isOn: $viewModel.isElementInspectorEnabled)
+                .toggleStyle(.checkbox)
+
+            if let element = viewModel.inspectedElement {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(verbatim: elementSummary(element))
+                        .font(.caption)
+                        .fontDesign(.monospaced)
+                        .textSelection(.enabled)
+
+                    boxModelRow(labelKey: "devTools.inspector.size", value: String(
+                        format: "%.0f × %.0f", element.width, element.height
+                    ))
+                    boxModelRow(labelKey: "devTools.inspector.margin", value: element.margin)
+                    boxModelRow(labelKey: "devTools.inspector.border", value: element.border)
+                    boxModelRow(labelKey: "devTools.inspector.padding", value: element.padding)
+                    boxModelRow(labelKey: "devTools.inspector.font", value: element.fontSize)
+                    boxModelRow(labelKey: "devTools.inspector.color", value: element.color)
+                }
+                .padding(.top, 4)
+
+                Spacer()
+            } else {
+                emptyState(labelKey: "devTools.inspector.empty")
+            }
+        }
+        .padding(20)
+    }
+
+    private func elementSummary(_ element: ElementBoxModel) -> String {
+        var summary = "<\(element.tagName)"
+        if let id = element.elementID, !id.isEmpty {
+            summary += "#\(id)"
+        }
+        if let className = element.className, !className.isEmpty {
+            summary += ".\(className.split(separator: " ").joined(separator: "."))"
+        }
+        summary += ">"
+        return summary
+    }
+
+    private func boxModelRow(labelKey: LocalizedStringKey, value: String) -> some View {
+        HStack {
+            Text(labelKey)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .frame(width: 70, alignment: .leading)
+            Text(verbatim: value)
+                .font(.caption2)
+                .fontDesign(.monospaced)
+                .textSelection(.enabled)
+        }
     }
 }

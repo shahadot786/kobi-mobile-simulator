@@ -30,6 +30,11 @@ final class AppState {
     var triggerFocusURLBar: UUID?
     var triggerExportSheet: UUID?
 
+    /// 1-9 from ⌘⌥1...⌘⌥9 — Phase 15 number-key device switching, selecting the Nth favorited
+    /// device (favorites are the one stable, user-curated ordering; the catalog list itself is
+    /// subject to search/grouping filters that would make its "Nth item" unpredictable).
+    var pendingFavoriteSlotSelection: Int?
+
     private static let appearanceModeKey = "appearanceMode"
     private static let onboardingCompletedKey = "hasCompletedOnboarding"
 

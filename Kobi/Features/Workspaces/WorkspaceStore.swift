@@ -11,11 +11,39 @@ import Observation
 @Observable
 final class WorkspaceStore {
     private static let storageKey = "kobi_saved_workspaces_v1"
+    private static let draftKey = "kobi_draft_workspace_v1"
 
     var workspaces: [Workspace] = []
 
     init() {
         loadWorkspaces()
+    }
+
+    // MARK: - Draft autosave (Phase 15)
+
+    //
+    // Separate from the named `workspaces` list above — a draft is an automatic, unnamed
+    // snapshot of the current canvas layout, restored on next launch if the app didn't exit
+    // cleanly. `KobiAppDelegate.applicationWillTerminate` clears it on a normal quit (including
+    // the standard Cmd+Q flow), so a deliberate quit doesn't "restore" next time — only a
+    // crash or a literal Force Quit, which skips that callback, leaves it behind.
+
+    static func loadDraft() -> Workspace? {
+        guard let data = UserDefaults.standard.data(forKey: draftKey),
+              let workspace = try? JSONDecoder().decode(Workspace.self, from: data)
+        else {
+            return nil
+        }
+        return workspace
+    }
+
+    static func saveDraft(_ workspace: Workspace) {
+        guard let data = try? JSONEncoder().encode(workspace) else { return }
+        UserDefaults.standard.set(data, forKey: draftKey)
+    }
+
+    static func clearDraft() {
+        UserDefaults.standard.removeObject(forKey: draftKey)
     }
 
     @discardableResult

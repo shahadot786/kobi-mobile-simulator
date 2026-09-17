@@ -19,16 +19,19 @@ struct SimulatorView: View {
     // Export Sheet & Media Query Sheet
     @State private var isExportSheetPresented = false
     @State private var isMediaQuerySheetPresented = false
+    @State private var isDevToolsPresented = false
     @State private var screenRecorder = ScreenRecorder()
     @State private var recordingRegion = RecordingRegion()
 
     @FocusState private var isURLBarFocused: Bool
 
-    /// Watch mode (auto-reload on save)
-    @State private var isWatchModeEnabled = false
-
     /// Visual feedback for DPR breakpoint copy
     @State private var copiedCSSFeedback = false
+
+    /// Dev-server port scan (Phase 12)
+    @State private var isDevServerScanPresented = false
+    @State private var detectedDevServerPorts: [Int] = []
+    @State private var isScanningForDevServers = false
 
     var body: some View {
         Group {
@@ -52,6 +55,9 @@ struct SimulatorView: View {
                 currentDeviceWidth: viewModel.device.viewportWidth,
                 onDismiss: { isMediaQuerySheetPresented = false }
             )
+        }
+        .sheet(isPresented: $isDevToolsPresented) {
+            DevToolsPanelView(viewModel: viewModel, onDismiss: { isDevToolsPresented = false })
         }
         .onChange(of: appState.triggerFocusURLBar) { _, _ in
             isURLBarFocused = true
@@ -438,9 +444,9 @@ extension SimulatorView {
                         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                 }
 
-                // Watch Mode Toggle Pill
+                // Watch Mode Toggle Pill — polls the loaded document and auto-reloads on change
                 Button {
-                    isWatchModeEnabled.toggle()
+                    viewModel.isWatchModeEnabled.toggle()
                 } label: {
                     HStack(spacing: 3) {
                         Image(systemName: "arrow.triangle.2.circlepath")
@@ -450,8 +456,11 @@ extension SimulatorView {
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(isWatchModeEnabled ? KobiTheme.statusOnline.opacity(0.15) : Color.primary.opacity(0.05))
-                    .foregroundStyle(isWatchModeEnabled ? KobiTheme.statusOnline : .secondary)
+                    .background(
+                        viewModel.isWatchModeEnabled
+                            ? KobiTheme.statusOnline.opacity(0.15) : Color.primary.opacity(0.05)
+                    )
+                    .foregroundStyle(viewModel.isWatchModeEnabled ? KobiTheme.statusOnline : .secondary)
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -465,6 +474,21 @@ extension SimulatorView {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
             )
+
+            // Dev-server port scan (Phase 12)
+            Button {
+                isDevServerScanPresented = true
+                Task { await scanForDevServers() }
+            } label: {
+                Image(systemName: "server.rack")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .buttonStyle(.bordered)
+            .help("simulator.toolbar.devServerScanHelp")
+            .accessibilityLabel("accessibility.simulator.devServerScan")
+            .popover(isPresented: $isDevServerScanPresented) {
+                devServerScanPopover
+            }
 
             // Zoom Controller
             Menu {
@@ -531,6 +555,27 @@ extension SimulatorView {
             .help("simulator.toolbar.frameToggle")
             .accessibilityLabel("accessibility.simulator.frameToggle")
 
+            // DevTools Button — console/JS-error/network log panel (Phase 10)
+            Button {
+                isDevToolsPresented = true
+            } label: {
+                Image(systemName: "terminal")
+                    .font(.system(size: 12, weight: .medium))
+                    .overlay(alignment: .topTrailing) {
+                        if viewModel.jsErrorCount > 0 {
+                            Text(verbatim: "\(min(viewModel.jsErrorCount, 99))")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(3)
+                                .background(KobiTheme.statusError, in: Circle())
+                                .offset(x: 8, y: -8)
+                        }
+                    }
+            }
+            .buttonStyle(.bordered)
+            .help("simulator.toolbar.devToolsHelp")
+            .accessibilityLabel("accessibility.simulator.devTools")
+
             // Simulation Menu
             Menu {
                 Section("simulator.menu.network") {
@@ -552,6 +597,7 @@ extension SimulatorView {
                 Toggle("simulator.menu.touchSimulation", isOn: $viewModel.isTouchSimulationEnabled)
                 Toggle("simulator.menu.keyboardOverlay", isOn: $viewModel.isKeyboardOverlayEnabled)
                 Toggle("simulator.menu.kioskMode", isOn: $viewModel.isKioskModeEnabled)
+                Toggle("simulator.menu.networkLogging", isOn: $viewModel.isNetworkLoggingEnabled)
 
                 Divider()
 
@@ -580,5 +626,57 @@ extension SimulatorView {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    // MARK: - Dev-server port scan (Phase 12)
+
+    private var devServerScanPopover: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("simulator.devServerScan.title")
+                .font(.headline)
+
+            if isScanningForDevServers {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("simulator.devServerScan.scanning")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else if detectedDevServerPorts.isEmpty {
+                Text("simulator.devServerScan.empty")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(detectedDevServerPorts, id: \.self) { port in
+                    Button {
+                        viewModel.load(urlString: "http://localhost:\(port)")
+                        isDevServerScanPresented = false
+                    } label: {
+                        Label {
+                            Text(verbatim: "localhost:\(port)")
+                        } icon: {
+                            Image(systemName: "bolt.horizontal.circle")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Button("simulator.devServerScan.rescan") {
+                Task { await scanForDevServers() }
+            }
+            .font(.caption)
+            .disabled(isScanningForDevServers)
+        }
+        .padding(16)
+        .frame(width: 220)
+    }
+
+    private func scanForDevServers() async {
+        isScanningForDevServers = true
+        detectedDevServerPorts = await LocalDevServerScanner.scan()
+        isScanningForDevServers = false
     }
 }
