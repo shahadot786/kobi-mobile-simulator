@@ -74,6 +74,9 @@ struct CanvasView: View {
         }
         .onAppear { resourceMonitor.start() }
         .onDisappear { resourceMonitor.stop() }
+        .sheet(isPresented: $isCompareSheetPresented) {
+            CompareDevicesView(frames: canvasViewModel.frames, onDismiss: { isCompareSheetPresented = false })
+        }
     }
 
     private func currentPosition(for frame: SimulatorViewModel) -> CGPoint {
@@ -141,6 +144,15 @@ struct CanvasView: View {
                     .foregroundStyle(KobiTheme.statusOnline)
                     .font(.caption)
             }
+
+            Button {
+                isCompareSheetPresented = true
+            } label: {
+                Label("canvas.compare.button", systemImage: "rectangle.2.swap")
+            }
+            .disabled(canvasViewModel.frames.count < 2)
+            .help("canvas.compare.help")
+            .accessibilityLabel("accessibility.canvas.compareButton")
 
             Menu {
                 Button("canvas.export.copy") {
