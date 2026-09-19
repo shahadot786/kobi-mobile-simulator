@@ -79,6 +79,7 @@ struct SettingsView: View {
                 shortcutRow(titleKey: "settings.shortcuts.singleMode", keys: ["⌘", "1"])
                 shortcutRow(titleKey: "settings.shortcuts.canvasMode", keys: ["⌘", "2"])
                 shortcutRow(titleKey: "settings.shortcuts.mockupsMode", keys: ["⌘", "3"])
+                shortcutRow(titleKey: "settings.shortcuts.favoriteSlots", keys: ["⌘", "⌥", "1-9"])
             }
 
             Section("settings.shortcuts.viewport") {

@@ -7,9 +7,20 @@
 
 import SwiftUI
 
+/// Distinguishes a clean quit from a crash/Force Quit for Phase 15 session persistence:
+/// `applicationWillTerminate` fires for the standard Cmd+Q / Quit-menu flow (and the menu bar
+/// extra's own Quit button below, since both go through `NSApplication.terminate`), but not for
+/// a crash or a literal Force Quit — exactly the distinction the draft-autosave restore needs.
+final class KobiAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillTerminate(_: Notification) {
+        WorkspaceStore.clearDraft()
+    }
+}
+
 @main
 struct KobiApp: App {
     @State private var appState = AppState()
+    @NSApplicationDelegateAdaptor private var appDelegate: KobiAppDelegate
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
@@ -49,6 +60,18 @@ struct KobiApp: App {
                     appState.triggerReload = UUID()
                 }
                 .keyboardShortcut("r", modifiers: .command)
+
+                Divider()
+
+                // Phase 15 — ⌘⌥1...⌘⌥9 select the Nth favorited device. Cmd+1/2/3 (below) are
+                // already claimed for view-mode switching, so this uses a distinct modifier
+                // combination rather than colliding with it.
+                ForEach(1 ... 9, id: \.self) { slot in
+                    Button(String(format: String(localized: "commands.device.selectFavoriteSlot"), slot)) {
+                        appState.pendingFavoriteSlotSelection = slot
+                    }
+                    .keyboardShortcut(KeyEquivalent(Character("\(slot)")), modifiers: [.command, .option])
+                }
             }
 
             CommandMenu("menu.workspaces.title") {

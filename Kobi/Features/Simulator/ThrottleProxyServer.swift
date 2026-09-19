@@ -80,6 +80,11 @@ final class ThrottleProxyServer {
     private var preset: NetworkThrottlePreset = .none
     private let session = URLSession(configuration: .ephemeral)
 
+    /// Fired once per proxied request with method/status/timing/size — independent of whether
+    /// `preset` adds artificial delay, so this doubles as the Phase 10 network log source even
+    /// when throttling itself is off. Delivered off the main actor; callers must hop themselves.
+    var onRequestLogged: ((NetworkLogEntry) -> Void)?
+
     deinit {
         listener?.cancel()
     }
@@ -188,6 +193,7 @@ final class ThrottleProxyServer {
 
         let latencyMilliseconds = preset.latencyMilliseconds
         let bytesPerSecond = preset.downloadBytesPerSecond
+        let requestStart = Date()
 
         Task {
             if latencyMilliseconds > 0 {
@@ -195,11 +201,22 @@ final class ThrottleProxyServer {
             }
             do {
                 let (data, response) = try await session.data(for: urlRequest)
+                let httpResponse = response as? HTTPURLResponse
                 await self.writeResponse(
                     data: data,
-                    response: response as? HTTPURLResponse,
+                    response: httpResponse,
                     bytesPerSecond: bytesPerSecond,
                     on: connection
+                )
+                self.onRequestLogged?(
+                    NetworkLogEntry(
+                        method: request.method,
+                        path: request.path,
+                        statusCode: httpResponse?.statusCode,
+                        durationMilliseconds: Date().timeIntervalSince(requestStart) * 1000,
+                        byteCount: data.count,
+                        timestamp: requestStart
+                    )
                 )
             } catch {
                 connection.cancel()

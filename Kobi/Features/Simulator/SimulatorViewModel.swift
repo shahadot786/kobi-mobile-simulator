@@ -43,6 +43,13 @@ enum ZoomOption: CaseIterable, Identifiable {
     }
 }
 
+/// A relayed click or form-input event — see Phase 12 in docs/ROADMAP_V2.md.
+struct InteractionSyncEvent {
+    let type: String
+    let selector: String
+    let value: String?
+}
+
 @Observable
 final class SimulatorViewModel: Identifiable {
     let id = UUID()
@@ -59,7 +66,52 @@ final class SimulatorViewModel: Identifiable {
     var networkThrottlePreset: NetworkThrottlePreset = .none {
         didSet {
             guard oldValue != networkThrottlePreset else { return }
-            applyThrottlePreset()
+            applyProxyRouting()
+        }
+    }
+
+    /// When on, requests are routed through `ThrottleProxyServer` purely to log them (method,
+    /// status, timing, size) even at full speed — independent of whether throttling itself is
+    /// also on. See Phase 10 in docs/ROADMAP_V2.md.
+    var isNetworkLoggingEnabled: Bool = false {
+        didSet {
+            guard oldValue != isNetworkLoggingEnabled else { return }
+            applyProxyRouting()
+        }
+    }
+
+    /// Polls the loaded document for changes and auto-reloads on change — see
+    /// `AutoReloadMonitor` and Phase 12 in docs/ROADMAP_V2.md.
+    var isWatchModeEnabled: Bool = false {
+        didSet {
+            guard oldValue != isWatchModeEnabled else { return }
+            applyWatchMode()
+        }
+    }
+
+    private static let maxLogEntries = 300
+
+    private(set) var consoleLogEntries: [ConsoleLogEntry] = []
+    private(set) var networkLogEntries: [NetworkLogEntry] = []
+    private(set) var perfMetrics: PerfMetricsSnapshot?
+    private(set) var inspectedElement: ElementBoxModel?
+
+    var jsErrorCount: Int {
+        consoleLogEntries.filter { $0.level == .error }.count
+    }
+
+    /// Hover-to-highlight + click-to-inspect box model — Phase 16. Toggling this on makes the
+    /// page's own click handling stop working (the injected script intercepts clicks to report
+    /// the target element instead), matching how real DevTools' inspect mode behaves.
+    var isElementInspectorEnabled: Bool = false {
+        didSet {
+            guard oldValue != isElementInspectorEnabled else { return }
+            if !isElementInspectorEnabled {
+                inspectedElement = nil
+            }
+            webView?.evaluateJavaScript(
+                "window.__kobiSetInspectorEnabled && window.__kobiSetInspectorEnabled(\(isElementInspectorEnabled))"
+            )
         }
     }
 
@@ -71,12 +123,26 @@ final class SimulatorViewModel: Identifiable {
     var canGoBack: Bool = false
     var canGoForward: Bool = false
 
+    /// True while this frame is scrolled out of the canvas viewport and lazy-suspended — see
+    /// Phase 13 in docs/ROADMAP_V2.md. Best-effort: dispatches a standards-based
+    /// `visibilitychange` signal (many pages already pause their own polling/animations on
+    /// `document.hidden`) and freezes CSS animations/transitions directly. It does not force a
+    /// hard stop of arbitrary page JS — WebKit has no public API for that — and deliberately
+    /// avoids unloading the page, which would lose scroll position and in-page state every time
+    /// a card scrolls in and out of view.
+    private(set) var isSuspended = false
+
     weak var webView: WKWebView?
     private var throttleProxy: ThrottleProxyServer?
+    private let autoReloadMonitor = AutoReloadMonitor()
 
     /// Reports fractional scroll position (0...1 on each axis) whenever this frame's page
     /// scrolls, so a canvas of multiple frames can mirror scrolling across them.
     var onScrollFraction: ((Double, Double) -> Void)?
+
+    /// Reports a click or form-input event so a canvas of multiple frames can replay a flow
+    /// tested once across every open device — Phase 12.
+    var onInteraction: ((InteractionSyncEvent) -> Void)?
 
     /// Set right before we programmatically scroll this frame in response to another frame's
     /// scroll, so the resulting 'scroll' event doesn't get reported back out and cause an
@@ -91,6 +157,7 @@ final class SimulatorViewModel: Identifiable {
 
     deinit {
         throttleProxy?.stop()
+        autoReloadMonitor.stop()
     }
 
     func toggleOrientation() {
@@ -121,15 +188,99 @@ final class SimulatorViewModel: Identifiable {
         }
         self.urlString = urlString
         currentURL = url
-        if networkThrottlePreset == .none {
-            webView?.load(URLRequest(url: url))
-        } else {
+        if shouldRouteThroughProxy {
             reloadThroughProxy()
+        } else {
+            webView?.load(URLRequest(url: url))
+        }
+        if isWatchModeEnabled {
+            applyWatchMode()
         }
     }
 
-    private func applyThrottlePreset() {
-        guard networkThrottlePreset != .none else {
+    // MARK: - Console / JS error / network logs
+
+    func appendConsoleLog(level: ConsoleLogLevel, message: String) {
+        consoleLogEntries.append(ConsoleLogEntry(level: level, message: message, timestamp: Date()))
+        if consoleLogEntries.count > Self.maxLogEntries {
+            consoleLogEntries.removeFirst(consoleLogEntries.count - Self.maxLogEntries)
+        }
+    }
+
+    func appendNetworkLog(_ entry: NetworkLogEntry) {
+        networkLogEntries.append(entry)
+        if networkLogEntries.count > Self.maxLogEntries {
+            networkLogEntries.removeFirst(networkLogEntries.count - Self.maxLogEntries)
+        }
+    }
+
+    /// Called on every navigation start so logs reflect only the current page, matching how
+    /// Safari/Chrome DevTools clear their console and network panels by default on reload.
+    func clearLogsForNewNavigation() {
+        consoleLogEntries.removeAll()
+        networkLogEntries.removeAll()
+        perfMetrics = nil
+    }
+
+    func clearConsoleLogs() {
+        consoleLogEntries.removeAll()
+    }
+
+    func clearNetworkLogs() {
+        networkLogEntries.removeAll()
+    }
+
+    // MARK: - Performance / a11y metrics (Phase 16)
+
+    func updatePerfMetrics(_ snapshot: PerfMetricsSnapshot) {
+        perfMetrics = snapshot
+    }
+
+    /// Re-runs the injected metrics pass on demand, without waiting for a fresh page load.
+    func refreshPerfMetrics() {
+        webView?.evaluateJavaScript("window.__kobiComputePerfMetrics && window.__kobiComputePerfMetrics()")
+    }
+
+    // MARK: - Element inspector (Phase 16)
+
+    func updateInspectedElement(_ element: ElementBoxModel) {
+        inspectedElement = element
+    }
+
+    // MARK: - Watch mode (auto-reload)
+
+    private func applyWatchMode() {
+        guard isWatchModeEnabled, let currentURL else {
+            autoReloadMonitor.stop()
+            return
+        }
+        autoReloadMonitor.start(url: currentURL) { [weak self] in
+            self?.reload()
+        }
+    }
+
+    // MARK: - Lazy-suspend (Phase 13)
+
+    func suspend() {
+        guard !isSuspended else { return }
+        isSuspended = true
+        webView?.evaluateJavaScript("window.__kobiSetSuspended && window.__kobiSetSuspended(true)")
+    }
+
+    func resume() {
+        guard isSuspended else { return }
+        isSuspended = false
+        webView?.evaluateJavaScript("window.__kobiSetSuspended && window.__kobiSetSuspended(false)")
+    }
+
+    // MARK: - Network throttling / logging proxy
+
+    private var shouldRouteThroughProxy: Bool {
+        networkThrottlePreset != .none || isNetworkLoggingEnabled
+    }
+
+    private func applyProxyRouting() {
+        guard shouldRouteThroughProxy else {
             throttleProxy?.stop()
             throttleProxy = nil
             if let currentURL {
@@ -152,6 +303,11 @@ final class SimulatorViewModel: Identifiable {
 
         let upstreamPort = UInt16(url.port ?? 80)
         let proxy = throttleProxy ?? ThrottleProxyServer()
+        proxy.onRequestLogged = { [weak self] entry in
+            Task { @MainActor in
+                self?.appendNetworkLog(entry)
+            }
+        }
         throttleProxy = proxy
         let preset = networkThrottlePreset
 
@@ -195,6 +351,34 @@ final class SimulatorViewModel: Identifiable {
                 self?.isApplyingSyncedScroll = false
             }
         }
+    }
+
+    // MARK: - Cross-device interaction sync (click / form input)
+
+    /// Called by the receiving webview's interaction listener — unlike scroll, the injected
+    /// script already suppresses re-capture while replaying (see `interactionSyncScriptSource`
+    /// in `WebViewRepresentable.swift`), so no Swift-side re-entrancy guard is needed here.
+    func reportInteraction(_ event: InteractionSyncEvent) {
+        onInteraction?(event)
+    }
+
+    func applyInteraction(_ event: InteractionSyncEvent) {
+        let type = Self.jsStringLiteral(event.type)
+        let selector = Self.jsStringLiteral(event.selector)
+        let value = event.value.map { Self.jsStringLiteral($0) } ?? "null"
+        webView?.evaluateJavaScript(
+            "window.__kobiApplyInteraction && window.__kobiApplyInteraction(\(type), \(selector), \(value))"
+        )
+    }
+
+    /// Encodes a Swift string as a safely-escaped, quoted JS string literal for embedding in an
+    /// `evaluateJavaScript` call — selectors/values come from arbitrary page content, so naive
+    /// string interpolation would be a JS-injection risk.
+    private static func jsStringLiteral(_ string: String) -> String {
+        guard let data = try? JSONEncoder().encode(string), let json = String(data: data, encoding: .utf8) else {
+            return "\"\""
+        }
+        return json
     }
 
     private static func normalizedURLString(from input: String) -> String {
